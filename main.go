@@ -43,7 +43,7 @@ func init() {
 	flag.StringVar(&protocol, "m", "raw", "parse the contents of packets by raw/dns/http/redis/memcached/mysql")
 	flag.Int64Var(&threshold, "t", 5, "slow request threshold, in units of millisecond")
 	flag.Int64Var(&count, "c", 0, "maximum number of captured packets (default 0, no limit)")
-	flag.Int64Var(&duration, "d", 60, "maximum time of captured packets, in units of second")
+	flag.Int64Var(&duration, "d", 0, "maximum time of captured packets, in units of second  (default 0, no limit)")
 	flag.StringVar(&luafile, "x", "", "process packets with specialed lua script")
 	flag.IntVar(&snaplen, "n", 1500, "maximum length of the captured data packet snaplen")
 	flag.StringVar(&custom, "e", "", "customized packet filter, the format is the same as tcpdump")

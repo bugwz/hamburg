@@ -26,9 +26,9 @@ var ProtocolType = map[int]string{
 }
 
 // ParsePayload parse payload
-func (t *Hamburg) ParsePayload(d *utils.PacketDetail) {
+func (h *Hamburg) ParsePayload(d *utils.PacketDetail) {
 	if d.Payload != "" {
-		switch t.Conf.Protocol {
+		switch h.Conf.Protocol {
 		case PTRAW:
 			protocol.ParsePayloadWithRAW(d)
 		case PTDNS:

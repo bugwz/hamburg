@@ -8,6 +8,6 @@ import (
 
 // ParsePayloadWithRAW raw
 func ParsePayloadWithRAW(d *utils.PacketDetail) {
-	d.Content = fmt.Sprintf("Seq:%-10s Ack:%-10s Flags:%-12s PayloadLen:%d",
+	d.Content = fmt.Sprintf("Seq:%s - Ack:%s - %s - PayLen:%d",
 		d.Sequence, d.ACK, d.FlagStr, d.PayloadLen)
 }

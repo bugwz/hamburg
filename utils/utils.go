@@ -46,7 +46,7 @@ func FileIsExist(file string) bool {
 // VerifyIPs check ips
 func VerifyIPs(ips []string) error {
 	for _, ip := range ips {
-		if len(ip) == 0 {
+		if len(ip) != 0 {
 			if net.ParseIP(ip) == nil {
 				return fmt.Errorf("IP %s is illegal", ip)
 			}

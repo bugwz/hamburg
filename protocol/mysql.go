@@ -18,37 +18,37 @@ https://dev.mysql.com/doc/dev/mysql-server/8.0.11/page_protocol_basic_packets.ht
 |<=======  header  =======>|<===========   body   =============>|
 */
 
-// mysql client request type
+// mysql client request type in payload body
 const (
-	MySQLSleep            byte = 0x00
-	MySQLQuit                  = 0x01
-	MySQLInitDB                = 0x02
-	MySQLQuery                 = 0x03
-	MySQLFieldList             = 0x04
-	MySQLCreateDB              = 0x05
-	MySQLDropDB                = 0x06
-	MySQLRefresh               = 0x07
-	MySQLShutdown              = 0x08
-	MySQLStatistics            = 0x09
-	MySQLProcessInfo           = 0x0A
-	MySQLConnect               = 0x0B
-	MySQLProcessKill           = 0x0C
-	MySQLDebug                 = 0x0D
-	MySQLPing                  = 0x0E
-	MySQLTime                  = 0x0F
-	MySQLDelayedInsert         = 0x10
-	MySQLChangeUser            = 0x11
-	MySQLBinglogDump           = 0x12
-	MySQLTableDump             = 0x13
-	MySQLConnectOut            = 0x14
-	MySQLRegisterSlave         = 0x15
-	MySQLStmtPrepare           = 0x16
-	MySQLStmtExecute           = 0x17
-	MySQLStmtSendLongData      = 0x18
-	MySQLStmtClose             = 0x19
-	MySQLStmtReset             = 0x1A
-	MySQLSetOption             = 0x1B
-	MySQLStmtFetch             = 0x1C
+	MySQLSleep            = 0x00 // 0
+	MySQLQuit             = 0x01 // 1, mysql_close
+	MySQLInitDB           = 0x02 // 2, mysql_select_db
+	MySQLQuery            = 0x03 // 3, mysql_real_query
+	MySQLFieldList        = 0x04 // 4, mysql_list_fields
+	MySQLCreateDB         = 0x05 // 5, mysql_create_db
+	MySQLDropDB           = 0x06 // 6, mysql_drop_db
+	MySQLRefresh          = 0x07 // 7, mysql_refresh
+	MySQLShutdown         = 0x08 // 8, mysql_shutdown
+	MySQLStatistics       = 0x09 // 9, mysql_stat
+	MySQLProcessInfo      = 0x0A // 10, mysql_list_processes
+	MySQLConnect          = 0x0B // 11
+	MySQLProcessKill      = 0x0C // 12, mysql_kill
+	MySQLDebug            = 0x0D // 13, mysql_dump_debug_info
+	MySQLPing             = 0x0E // 14, mysql_ping
+	MySQLTime             = 0x0F // 15
+	MySQLDelayedInsert    = 0x10 // 16
+	MySQLChangeUser       = 0x11 // 17, mysql_change_user
+	MySQLBinglogDump      = 0x12 // 18
+	MySQLTableDump        = 0x13 // 19
+	MySQLConnectOut       = 0x14 // 20
+	MySQLRegisterSlave    = 0x15 // 21
+	MySQLStmtPrepare      = 0x16 // 22, mysql_stmt_prepare
+	MySQLStmtExecute      = 0x17 // 23, mysql_stmt_execute
+	MySQLStmtSendLongData = 0x18 // 24, mysql_stmt_send_long_data
+	MySQLStmtClose        = 0x19 // 25, mysql_stmt_close
+	MySQLStmtReset        = 0x1A // 26, mysql_stmt_reset
+	MySQLSetOption        = 0x1B // 27, mysql_set_server_option
+	MySQLStmtFetch        = 0x1C // 28, mysql_stmt_fetch
 	// MySQLDaemon          = 29
 	// MySQLBinglogDumpGitd = 29
 	// MySQLResetConnection = 31
@@ -56,7 +56,7 @@ const (
 	// MySQL0x00            = 0x00
 )
 
-// mysql server response type
+// mysql server response type in payload body
 const (
 	MySQLOK    = 0x00
 	MySQLError = 0xFF
@@ -70,36 +70,35 @@ const (
 func ParsePayloadWithMySQL(d *utils.PacketDetail) {
 	var pos int
 	payload := []byte(d.Payload)
-	if len(payload) < 10 {
+	if len(payload) < 5 {
 		return
 	}
 
 	// TODO: Why truncated the first 7 bytes?
-	// plen := int(uint32(payload[7]) | uint32(payload[8])<<8 | uint32(payload[9])<<16)
-	// sid := payload[10]
+	plen := int(uint32(payload[0]) | uint32(payload[1])<<8 | uint32(payload[2])<<16)
+	sid := payload[3]
+	if sid != 0 || len(payload) < plen+4 {
+		return
+	}
 
 	// request
-	pos = 11
+	pos = 4
 	if d.Direction == "REQ" {
 		switch payload[pos] {
-		case MySQLInitDB:
+		case MySQLQuit, MySQLInitDB, MySQLQuery, MySQLFieldList, MySQLCreateDB,
+			MySQLDropDB, MySQLRefresh, MySQLShutdown, MySQLStatistics,
+			MySQLProcessInfo, MySQLProcessKill, MySQLPing, MySQLChangeUser,
+			MySQLStmtPrepare:
 			d.Content = string(payload[pos+1:])
-		case MySQLDropDB:
-			d.Content = string(payload[pos+1:])
-		case MySQLCreateDB, MySQLQuery:
-			d.Content = string(payload[pos+1:])
-		case MySQLStmtPrepare:
-			// TODO: parse payload
-			d.Content = "MySQLStmtPrepare"
 		case MySQLStmtSendLongData:
 			// TODO: parse payload
-			d.Content = "MySQLStmtSendLongData"
+			d.Content = ""
 		case MySQLStmtReset:
 			// TODO: parse payload
-			d.Content = "MySQLStmtReset"
+			d.Content = ""
 		case MySQLStmtExecute:
 			// TODO: parse payload
-			d.Content = "MySQLStmtExecute"
+			d.Content = ""
 		default:
 			d.Content = ""
 		}

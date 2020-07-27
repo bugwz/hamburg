@@ -25,8 +25,8 @@ type Conf struct {
 }
 
 // InitConf init conf
-func (t *Hamburg) InitConf() {
-	t.Conf = &Conf{
+func (h *Hamburg) InitConf() {
+	h.Conf = &Conf{
 		Threshold:         time.Duration(5) * time.Millisecond,
 		Count:             0,
 		Duration:          time.Duration(0),
@@ -37,8 +37,8 @@ func (t *Hamburg) InitConf() {
 }
 
 // VerifyConf check confs
-func (t *Hamburg) VerifyConf() error {
-	c := t.Conf
+func (h *Hamburg) VerifyConf() error {
+	c := h.Conf
 	if c.InterFile == "" {
 		return fmt.Errorf("Must specify a network card device or offline pcap data file")
 	}

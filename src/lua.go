@@ -14,15 +14,15 @@ type Lua struct {
 }
 
 // InitLua init lua
-func (t *Hamburg) InitLua() error {
-	file := t.Conf.LuaFile
+func (h *Hamburg) InitLua() error {
+	file := h.Conf.LuaFile
 	if file != "" {
 		lstate := lua.NewState()
 		if err := lstate.DoFile(file); err != nil {
 			return fmt.Errorf("Load lua script %s failed: %v", file, err)
 		}
 
-		t.Lua = &Lua{
+		h.Lua = &Lua{
 			LState: lstate,
 			LSArgs: lstate.CreateTable(0, 0),
 		}
@@ -32,9 +32,9 @@ func (t *Hamburg) InitLua() error {
 }
 
 // ProcessPacketsWithLua run lua script with packet detail
-func (t *Hamburg) ProcessPacketsWithLua(d *utils.PacketDetail) {
-	l := t.Lua
-	c := t.Conf
+func (h *Hamburg) ProcessPacketsWithLua(d *utils.PacketDetail) {
+	l := h.Lua
+	c := h.Conf
 
 	l.LSArgs.RawSetString("type", lua.LString(fmt.Sprintf("[%s]", d.Type)))
 	l.LSArgs.RawSetString("direction", lua.LString(d.Direction))

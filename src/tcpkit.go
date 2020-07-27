@@ -25,36 +25,36 @@ func NewHamburg() *Hamburg {
 }
 
 // Run run
-func (t *Hamburg) Run() {
-	if err := t.VerifyConf(); err != nil {
-		t.Done(err)
+func (h *Hamburg) Run() {
+	if err := h.VerifyConf(); err != nil {
+		h.Done(err)
 		return
 	}
 
-	if err := t.InitStats(); err != nil {
-		t.Done(err)
+	if err := h.InitStats(); err != nil {
+		h.Done(err)
 		return
 	}
 
-	if err := t.InitLua(); err != nil {
-		t.Done(err)
+	if err := h.InitLua(); err != nil {
+		h.Done(err)
 		return
 	}
 
-	if err := t.InitSniffer(); err != nil {
-		t.Done(err)
+	if err := h.InitSniffer(); err != nil {
+		h.Done(err)
 		return
 	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	t.Wg.Add(1)
-	go t.RunCapture(sig)
-	t.Wg.Wait()
+	h.Wg.Add(1)
+	go h.RunCapture(sig)
+	h.Wg.Wait()
 }
 
 // Done done
-func (t *Hamburg) Done(err error) {
+func (h *Hamburg) Done(err error) {
 	fmt.Println(err)
 	// TODO: clean something
 }

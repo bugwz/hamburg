@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-// Hamburg tcpkit
+// Hamburg hamburg
 type Hamburg struct {
 	Conf    *Conf
 	Lua     *Lua

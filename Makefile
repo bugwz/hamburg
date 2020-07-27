@@ -2,7 +2,7 @@ default: build
 
 GO=CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go
 LDFLAGS=
-NAME=tcpkit
+NAME=hamburg
 
 mod:
 	$(GO) mod tidy

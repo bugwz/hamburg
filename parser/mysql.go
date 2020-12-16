@@ -1,4 +1,4 @@
-package protocol
+package parser
 
 import (
 	"github.com/bugwz/hamburg/utils"

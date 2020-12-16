@@ -1,6 +1,6 @@
-package protocol
+package parser
 
-// Protocol type
+// Parser type
 const (
 	RAW       = "raw"
 	DNS       = "dns"

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	p "github.com/bugwz/hamburg/protocol"
+	p "github.com/bugwz/hamburg/parser"
 	"github.com/bugwz/hamburg/utils"
 	"github.com/google/gopacket"
 )

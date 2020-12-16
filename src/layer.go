@@ -18,18 +18,18 @@ func (h *Hamburg) ParsePacketLayers(packet *gopacket.Packet) *utils.PacketDetail
 	d := &utils.PacketDetail{Type: h.GetLayers(*packet)}
 	d.Timestap = (*packet).Metadata().CaptureInfo.Timestamp
 
-	// ethernet layer
+	// Ethernet layer
 	if ethernet := h.ParseEthernetLayer(*packet); ethernet != nil {
 		d.SrcMAC = ethernet.SrcMAC.String()
 		d.DstMAC = ethernet.DstMAC.String()
 	}
 
-	// ip layer
+	// IP layer
 	if ip := h.ParseIPLayer(*packet); ip != nil {
 		d.SrcIP = fmt.Sprintf("%s", ip.SrcIP)
 		d.DstIP = fmt.Sprintf("%s", ip.DstIP)
 
-		// set direction
+		// Set direction
 		d.Direction = "None"
 		if s.LocalIPs[d.SrcIP] != "" {
 			d.Direction = "RSP"
@@ -39,7 +39,7 @@ func (h *Hamburg) ParsePacketLayers(packet *gopacket.Packet) *utils.PacketDetail
 		}
 	}
 
-	// udp layer
+	// UDP layer
 	if udp := h.ParseUDPLayer(*packet); udp != nil {
 		d.SrcPort = fmt.Sprintf("%d", udp.SrcPort)
 		d.DstPort = fmt.Sprintf("%d", udp.DstPort)
@@ -48,46 +48,46 @@ func (h *Hamburg) ParsePacketLayers(packet *gopacket.Packet) *utils.PacketDetail
 		d.Payload = string(udp.BaseLayer.LayerPayload())
 	}
 
-	// tcp layer
+	// TCP layer
 	if tcp := h.ParseTCPLayer(*packet); tcp != nil {
 		d.SrcPort = fmt.Sprintf("%d", tcp.SrcPort)
 		d.DstPort = fmt.Sprintf("%d", tcp.DstPort)
 		d.CheckSum = fmt.Sprintf("%d", tcp.Checksum)
 		d.Sequence = fmt.Sprintf("%d", tcp.Seq)
 
-		// parse flag
+		// Parse flag
 		var fstr []string
 		fint := 0
 		if tcp.FIN {
-			fint |= THFIN
+			fint |= FIN
 			fstr = append(fstr, "FIN")
 		}
 		if tcp.SYN {
-			fint |= THSYN
+			fint |= SYN
 			fstr = append(fstr, "SYN")
 		}
 		if tcp.RST {
-			fint |= THRST
+			fint |= RST
 			fstr = append(fstr, "RST")
 		}
 		if tcp.PSH {
-			fint |= THPSH
+			fint |= PSH
 			fstr = append(fstr, "PSH")
 		}
 		if tcp.ACK {
-			fint |= THACK
+			fint |= ACK
 			fstr = append(fstr, "ACK")
 		}
 		if tcp.URG {
-			fint |= THURG
+			fint |= URG
 			fstr = append(fstr, "URG")
 		}
 		if tcp.ECE {
-			fint |= THECE
+			fint |= ECE
 			fstr = append(fstr, "ECE")
 		}
 		if tcp.CWR {
-			fint |= THCWR
+			fint |= CWR
 			fstr = append(fstr, "CWR")
 		}
 		d.Flag = fint
@@ -95,9 +95,9 @@ func (h *Hamburg) ParsePacketLayers(packet *gopacket.Packet) *utils.PacketDetail
 		d.ACK = fmt.Sprintf("%d", tcp.Ack)
 	}
 
-	// set direction
+	// Set direction
 	if d.SrcPort != "" && d.DstPort != "" {
-		for _, port := range c.Port {
+		for _, port := range c.ports {
 			if d.SrcPort == port {
 				d.Direction = "RSP"
 				break
@@ -116,25 +116,21 @@ func (h *Hamburg) ParsePacketLayers(packet *gopacket.Packet) *utils.PacketDetail
 		}
 	}
 
-	// parse payload
+	// Parse payload
 	if app := (*packet).ApplicationLayer(); app != nil {
 		if string(app.Payload()) != "" {
 			d.Payload = string(app.Payload())
 			d.PayloadLen = (*packet).Metadata().CaptureLength
 		}
 	}
-	h.ParsePayload(d)
+	h.PayloadParser(d)
 
-	// update stats
+	// Update stats
 	if d.Direction == "REQ" {
-		h.IncrRequestCount()
+		h.Stats.IncrRequestCount()
 	} else if d.Direction == "RSP" {
-		h.IncrResponseCount()
+		h.Stats.IncrResponseCount()
 	}
-
-	// tmp log
-	// fmt.Printf("%s:%s => %s:%s, direction is %s, flags is %s content is %s\r\n",
-	// 	d.SrcIP, d.SrcPort, d.DstIP, d.DstPort, d.Direction, d.FlagStr, d.Content)
 
 	return d
 }

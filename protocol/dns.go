@@ -132,8 +132,8 @@ var DNSClass = map[int]string{
 	DCHS: "HS", // Hesiod [Dyer 87]
 }
 
-// ParsePayloadWithDNS parse packets with http protocol rules
-func ParsePayloadWithDNS(d *utils.PacketDetail) {
+// DNSParser parse packets with http protocol rules
+func DNSParser(d *utils.PacketDetail) {
 	var code, qcount, acount, qr, pos, nextpos int
 	meta := []byte(d.Payload)
 

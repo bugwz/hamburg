@@ -3,6 +3,7 @@ package src
 import (
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/modood/table"
@@ -10,11 +11,11 @@ import (
 
 // Stats status summary
 type Stats struct {
-	RequestTotal   int64             // total request
-	ResponseTotal  int64             // total response
-	CostTotal      time.Duration     // total cost
-	SlowTotal      int64             // total slow count
-	LatencyBuckets []*LatencyBuckets // request time-consuming interval count
+	totalreq int64         // total request
+	totalrsp int64         // total response
+	slownum  int64         // total slow count
+	cost     time.Duration // total cost
+	bks      []*Buckets    // request time-consuming interval count
 }
 
 // StatsTable stats table
@@ -23,48 +24,47 @@ type StatsTable struct {
 	Value string // item value
 }
 
-// LatencyBuckets time-consuming interval statistics block
-type LatencyBuckets struct {
+// Buckets time-consuming interval statistics block
+type Buckets struct {
 	Duration time.Duration // minimum time-consuming interval
 	Count    int64         // packet count in this interval
 }
 
-// InitStats init stats
-func (h *Hamburg) InitStats() error {
-	var buckets []*LatencyBuckets
+// NewStats new status
+func NewStats() *Stats {
+	var bks []*Buckets
 	// The largest time-consuming interval is 50s ~
-	buckets = append(buckets, &LatencyBuckets{Duration: time.Duration(0), Count: 0})
+	bks = append(bks, &Buckets{Duration: time.Duration(0), Count: 0})
 	for i := 1; i < 7; i++ {
-		buckets = append(buckets, &LatencyBuckets{Duration: time.Duration(math.Pow10(i)*10) * time.Microsecond, Count: 0})
-		buckets = append(buckets, &LatencyBuckets{Duration: time.Duration(math.Pow10(i)*20) * time.Microsecond, Count: 0})
-		buckets = append(buckets, &LatencyBuckets{Duration: time.Duration(math.Pow10(i)*50) * time.Microsecond, Count: 0})
+		bks = append(bks, &Buckets{Duration: time.Duration(math.Pow10(i)*10) * time.Microsecond, Count: 0})
+		bks = append(bks, &Buckets{Duration: time.Duration(math.Pow10(i)*20) * time.Microsecond, Count: 0})
+		bks = append(bks, &Buckets{Duration: time.Duration(math.Pow10(i)*50) * time.Microsecond, Count: 0})
 	}
-
-	h.Stats = &Stats{LatencyBuckets: buckets}
-
-	return nil
+	return &Stats{
+		bks: bks,
+	}
 }
 
 // IncrRequestCount incr request count
-func (h *Hamburg) IncrRequestCount() {
-	h.Stats.RequestTotal++
+func (s *Stats) IncrRequestCount() {
+	s.totalreq++
 }
 
 // IncrResponseCount incr response count
-func (h *Hamburg) IncrResponseCount() {
-	h.Stats.ResponseTotal++
+func (s *Stats) IncrResponseCount() {
+	s.totalrsp++
 }
 
 // IncrSlowlogCount incr slow count
-func (h *Hamburg) IncrSlowlogCount() {
-	h.Stats.SlowTotal++
+func (s *Stats) IncrSlowlogCount() {
+	s.slownum++
 }
 
 // IncrTimeIntervalCount incr time-consuming interval count
-func (h *Hamburg) IncrTimeIntervalCount(dura time.Duration) {
-	h.Stats.CostTotal += dura
+func (s *Stats) IncrTimeIntervalCount(dura time.Duration) {
+	s.cost += dura
 
-	buckets := h.Stats.LatencyBuckets
+	buckets := s.bks
 	for i := len(buckets) - 1; i >= 0; i-- {
 		if dura >= buckets[i].Duration {
 			buckets[i].Count++
@@ -73,19 +73,18 @@ func (h *Hamburg) IncrTimeIntervalCount(dura time.Duration) {
 	}
 }
 
-// PrintStats stats
-func (h *Hamburg) PrintStats() {
+// ShowStats show stats
+func (s *Stats) ShowStats() {
 	var sums, duras []*StatsTable
-	s := h.Stats
 
-	sums = append(sums, &StatsTable{Item: "RequestTotal", Value: fmt.Sprintf("%d", s.RequestTotal)})
-	sums = append(sums, &StatsTable{Item: "ResponseTotal", Value: fmt.Sprintf("%d", s.ResponseTotal)})
-	sums = append(sums, &StatsTable{Item: "CostTotal", Value: fmt.Sprintf("%v", s.CostTotal)})
-	sums = append(sums, &StatsTable{Item: "SlowTotal", Value: fmt.Sprintf("%d", s.SlowTotal)})
-	fmt.Println("Summary Statistics:")
+	sums = append(sums, &StatsTable{Item: "RequestTotal", Value: fmt.Sprintf("%d", s.totalreq)})
+	sums = append(sums, &StatsTable{Item: "ResponseTotal", Value: fmt.Sprintf("%d", s.totalrsp)})
+	sums = append(sums, &StatsTable{Item: "CostTotal", Value: fmt.Sprintf("%v", s.cost)})
+	sums = append(sums, &StatsTable{Item: "SlowTotal", Value: fmt.Sprintf("%d", s.slownum)})
+	fmt.Println("\r\nSummary Statistics:")
 	table.Output(sums)
 
-	buckets := h.Stats.LatencyBuckets
+	buckets := s.bks
 	for i := 0; i < len(buckets)-1; i++ {
 		duras = append(duras, &StatsTable{
 			Item:  fmt.Sprintf("%s ~ %s", buckets[i].Duration, buckets[i+1].Duration),
@@ -98,4 +97,5 @@ func (h *Hamburg) PrintStats() {
 	})
 	fmt.Println("Summary of time-consuming:")
 	table.Output(duras)
+	os.Exit(0)
 }

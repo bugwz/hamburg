@@ -4,85 +4,173 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bugwz/hamburg/utils"
+	u "github.com/bugwz/hamburg/utils"
 )
 
 // Conf conf
 type Conf struct {
-	InterFile         string        // network interface or offline pcap file
-	OutFile           string        // file to save the captured package
-	Server            []string      // capture packets of the specified ips
-	Port              []string      // capture packets of the specified ports
-	Protocol          int           // contents protocol of packets, default is raw
-	Threshold         time.Duration // packets round trip time threshold, default is 5ms
-	Count             int64         // sniff the total amount of all packets, default is 0 (not limit)
-	Duration          time.Duration // the duration of the captured packet, default is 0 (not limit)
-	LuaFile           string        // use lua scripts to process captured packets
-	SnapLen           int32         // maximum length of captured data packet, default is 1500
-	CustomFilter      string        // custom filter to capture packets
-	ReadPacketTimeout time.Duration // read packet timeout, default is 30s
-	ShowResponse      bool          // show the contents of the reply packet, default is false
+	interfile   string        // network interface or offline pcap file
+	outfile     string        // file to save the captured package
+	ips         []string      // capture packets of the specified ips
+	ports       []string      // capture packets of the specified ports
+	protocol    string        // contents protocol of packets, default is raw
+	slowdura    time.Duration // slow packets round trip time threshold, default is 5ms
+	duration    time.Duration // the duration of the captured packet, default is 0 (not limit)
+	script      *Script       // use lua scripts to process captured packets
+	snapLen     int32         // maximum length of captured data packet, default is 1500
+	filter      string        // custom filter to capture packets
+	readtimeout time.Duration // read packet timeout, default is 30s
+	showrsp     bool          // show the contents of the reply packet, default is false
 }
 
-// InitConf init conf
-func (h *Hamburg) InitConf() {
-	h.Conf = &Conf{
-		Threshold:         time.Duration(5) * time.Millisecond,
-		Count:             0,
-		Duration:          time.Duration(0),
-		SnapLen:           1500,
-		ReadPacketTimeout: time.Duration(30) * time.Second,
-		ShowResponse:      false,
+// NewConf new conf
+func NewConf() *Conf {
+	return &Conf{
+		slowdura:    time.Duration(5) * time.Millisecond,
+		duration:    time.Duration(0),
+		snapLen:     1500,
+		readtimeout: time.Duration(30) * time.Second,
+		showrsp:     false,
 	}
 }
 
-// VerifyConf check confs
-func (h *Hamburg) VerifyConf() error {
-	c := h.Conf
-	if c.InterFile == "" {
-		return fmt.Errorf("Must specify a network card device or offline pcap data file")
-	}
+// SetScript set lua script
+func (c *Conf) SetScript(k string) {
+	c.script = NewScript(k)
+}
 
-	if utils.FileIsExist(c.OutFile) {
-		return fmt.Errorf("The packet output file %s already exists", c.OutFile)
-	}
+// SetInterfile set interfile
+func (c *Conf) SetInterfile(k string) {
+	c.interfile = k
+}
 
-	if err := utils.VerifyIPs(c.Server); err != nil {
-		return err
-	}
+// SetOutFile set outfile
+func (c *Conf) SetOutFile(k string) {
+	c.outfile = k
+}
 
-	if err := utils.VerifyPorts(c.Port); err != nil {
-		return err
+// SetIPs set ips for src or dst
+func (c *Conf) SetIPs(k []string) {
+	if u.VerifyIPs(k) != nil {
+		return
 	}
+	c.ips = k
+}
 
-	if c.Protocol <= 0 || c.Protocol > len(ProtocolType) {
-		return fmt.Errorf("Protocol %s is illegal", ProtocolType[c.Protocol])
+// SetPorts set ports for src or dst
+func (c *Conf) SetPorts(k []string) {
+	if u.VerifyPorts(k) != nil {
+		return
 	}
+	c.ports = k
+}
 
-	if c.Threshold < 0 {
-		return fmt.Errorf("Packets round trip time threshold must be greater than or equal to 0")
+// SetSlowDura set slow request duration
+func (c *Conf) SetSlowDura(k time.Duration) {
+	if k < 0 {
+		return
 	}
+	c.slowdura = k
+}
 
-	if c.Count < 0 {
-		return fmt.Errorf("Sniff the total amount of all packets must be greater than or equal to 0(not limit)")
+// SetDuration set the max time for capturing
+func (c *Conf) SetDuration(k time.Duration) {
+	if k < 0 {
+		return
 	}
+	c.duration = k
+}
 
-	if c.Duration < 0 {
-		return fmt.Errorf("Duration of the captured packet must be greater than or equal to 0(not limit)")
+// SetSnapLen set the snap len
+func (c *Conf) SetSnapLen(k int32) {
+	if k <= 0 {
+		return
 	}
+	c.snapLen = k
+}
 
-	if c.LuaFile != "" {
-		if !utils.FileIsExist(c.LuaFile) {
-			return fmt.Errorf("Not found lua file %s", c.LuaFile)
-		}
+// SetFilter set custom filter
+func (c *Conf) SetFilter(k string) {
+	c.filter = k
+}
+
+// SetShowrsp set slow request duration
+func (c *Conf) SetShowrsp(k bool) {
+	c.showrsp = k
+}
+
+// SetProtocol set the protocol for packets
+func (c *Conf) SetProtocol(k string) {
+	c.protocol = k
+}
+
+// GetScript get
+func (c *Conf) GetScript() *Script {
+	return c.script
+}
+
+// GetInterfile get interfile
+func (c *Conf) GetInterfile() string {
+	return c.interfile
+}
+
+// GetOutFile get outfile
+func (c *Conf) GetOutFile() string {
+	return c.outfile
+}
+
+// GetIPs get ips for src or dst
+func (c *Conf) GetIPs() []string {
+	return c.ips
+}
+
+// GetPorts get ports for src or dst
+func (c *Conf) GetPorts() []string {
+	return c.ports
+}
+
+// GetSlowDura get slow request duration
+func (c *Conf) GetSlowDura() time.Duration {
+	return c.slowdura
+}
+
+// GetDuration get the max time for capturing
+func (c *Conf) GetDuration() time.Duration {
+	return c.duration
+}
+
+// GetSnapLen get the snap len
+func (c *Conf) GetSnapLen() int32 {
+	return c.snapLen
+}
+
+// GetFilter get custom filter
+func (c *Conf) GetFilter() string {
+	return c.filter
+}
+
+// GetShowrsp get slow request duration
+func (c *Conf) GetShowrsp() bool {
+	return c.showrsp
+}
+
+// GetProtocol get the protocol for packets
+func (c *Conf) GetProtocol() string {
+	return c.protocol
+}
+
+// GetReadtimeout get the read timeout for packets
+func (c *Conf) GetReadtimeout() time.Duration {
+	return c.readtimeout
+}
+
+// CheckConfs check confs
+func (c *Conf) CheckConfs() error {
+	if c.GetInterfile() == "" {
+		return fmt.Errorf("The config for interfile is not valid")
 	}
-
-	if c.SnapLen <= 0 {
-		return fmt.Errorf("Maximum length of captured data packet must be greater than 0")
-	}
-
-	if c.ReadPacketTimeout <= 0 {
-		return fmt.Errorf("read packet timeout must be greater than 0")
+	if c.GetSnapLen() == 0 {
+		return fmt.Errorf("The config for snapLen is not valid")
 	}
 
 	return nil

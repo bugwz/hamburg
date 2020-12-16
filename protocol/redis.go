@@ -15,8 +15,8 @@ const (
 	RedisError        = '-'
 )
 
-// ParsePayloadWithRedis parse packets with redis protocol rules
-func ParsePayloadWithRedis(d *utils.PacketDetail) {
+// RedisParser parse packets with redis protocol rules
+func RedisParser(d *utils.PacketDetail) {
 	var coms []string
 	payload := d.Payload
 

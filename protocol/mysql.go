@@ -66,8 +66,8 @@ const (
 	// RowData   = 0x01 - 0xFA
 )
 
-// ParsePayloadWithMySQL parse packets with mysql protocol rules
-func ParsePayloadWithMySQL(d *utils.PacketDetail) {
+// MySQLParser parse packets with mysql protocol rules
+func MySQLParser(d *utils.PacketDetail) {
 	var pos int
 	payload := []byte(d.Payload)
 	if len(payload) < 5 {

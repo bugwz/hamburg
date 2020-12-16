@@ -7,8 +7,8 @@ import (
 	"github.com/bugwz/hamburg/utils"
 )
 
-// ParsePayloadWithHTTP parse packets with http protocol rules
-func ParsePayloadWithHTTP(d *utils.PacketDetail) {
+// HTTPParser parse packets with http protocol rules
+func HTTPParser(d *utils.PacketDetail) {
 	var rtype, host, path string
 	payload := d.Payload
 

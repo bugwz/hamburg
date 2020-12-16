@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// ParsePayloadWithMongoDB parse packets with mongodb protocol rules
-func ParsePayloadWithMongoDB(payload string) {
+// MongoDBParser parse packets with mongodb protocol rules
+func MongoDBParser(payload string) {
 	if len(payload) > 0 && payload[:1] == "*" {
 		var coms []string
 		lines := strings.Split(payload, "\r\n")

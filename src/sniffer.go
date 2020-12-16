@@ -14,22 +14,22 @@ import (
 	"github.com/google/gopacket/pcapgo"
 )
 
-// tcp/ucp protocol
+// Protocol type
 const (
 	TCP = "TCP"
 	UDP = "UDP"
 )
 
-// tcp flags
+// Flags for tcp
 const (
-	THFIN = 0x01
-	THSYN = 0x02
-	THRST = 0x04
-	THPSH = 0x08
-	THACK = 0x10
-	THURG = 0x20
-	THECE = 0x40
-	THCWR = 0x80
+	FIN = 0x01
+	SYN = 0x02
+	RST = 0x04
+	PSH = 0x08
+	ACK = 0x10
+	URG = 0x20
+	ECE = 0x40
+	CWR = 0x80
 )
 
 var noReplyCommands = []string{
@@ -52,14 +52,12 @@ type Sniffer struct {
 	Quit           bool              // whether to stop sniffing packets
 }
 
-// InitSniffer init
-func (h *Hamburg) InitSniffer() error {
-	h.Sniffer = &Sniffer{
+// NewSniffer new sniffer
+func NewSniffer() *Sniffer {
+	return &Sniffer{
 		Promisc:     false,
 		RequestDict: hashmap.New(),
 	}
-
-	return nil
 }
 
 // CreatePcapHandle pcap handle with offline file or network interface
@@ -67,27 +65,30 @@ func (h *Hamburg) CreatePcapHandle() error {
 	var err error
 	s := h.Sniffer
 	c := h.Conf
+	interfile := c.GetInterfile()
+	snapLen := c.GetSnapLen()
+	rtimeout := c.GetReadtimeout()
 
-	// monitor offline pcap file
-	if utils.FileIsExist(c.InterFile) {
-		if s.PcapHandle, err = pcap.OpenOffline(c.InterFile); err != nil {
-			return fmt.Errorf("Monitor offline pcap file %s failed: %v", c.InterFile, err)
+	// Monitor offline pcap file
+	if utils.FileIsExist(interfile) {
+		if s.PcapHandle, err = pcap.OpenOffline(interfile); err != nil {
+			return fmt.Errorf("Monitor offline pcap file %s failed: %v", interfile, err)
 		}
 
 		return nil
 	}
 
-	// monitor network interface
-	if s.PcapHandle, err = pcap.OpenLive(c.InterFile, c.SnapLen, s.Promisc, c.ReadPacketTimeout); err != nil {
-		return fmt.Errorf("Monitor network interface %s failed: %v", c.InterFile, err)
+	// Monitor network interface
+	if s.PcapHandle, err = pcap.OpenLive(interfile, snapLen, s.Promisc, rtimeout); err != nil {
+		return fmt.Errorf("Monitor network interface %s failed: %v", interfile, err)
 	}
-	ips, err := utils.GetInterfaceIPs(c.InterFile)
+	ips, err := utils.GetInterfaceIPs(interfile)
 	if err != nil {
 		return err
 	}
 	s.LocalIPs = ips
 
-	utils.PrintDeviceDetail(c.InterFile)
+	utils.PrintDeviceDetail(interfile)
 	return nil
 }
 
@@ -95,14 +96,17 @@ func (h *Hamburg) CreatePcapHandle() error {
 func (h *Hamburg) CreatePcapWriter() error {
 	s := h.Sniffer
 	c := h.Conf
-	if c.OutFile != "" {
-		handle, err := os.Create(c.OutFile)
+	outfile := c.GetOutFile()
+	snapLen := c.GetSnapLen()
+
+	if outfile != "" {
+		handle, err := os.Create(outfile)
 		if err != nil {
-			return fmt.Errorf("Create out file %s failed: %v", c.OutFile, err)
+			return fmt.Errorf("Create out file %s failed: %v", outfile, err)
 		}
 		s.OutFileHandle = handle
 		s.OutFileHWriter = pcapgo.NewWriter(s.OutFileHandle)
-		s.OutFileHWriter.WriteFileHeader(uint32(c.SnapLen), layers.LinkTypeEthernet)
+		s.OutFileHWriter.WriteFileHeader(uint32(snapLen), layers.LinkTypeEthernet)
 	}
 
 	return nil
@@ -114,27 +118,30 @@ func (h *Hamburg) CreateFilter() error {
 	var portf []string
 	s := h.Sniffer
 	c := h.Conf
+	ips := c.GetIPs()
+	ports := c.GetPorts()
+	filter := c.GetFilter()
 
-	// ports filter
-	for _, port := range c.Port {
+	// Ports filter
+	for _, port := range ports {
 		if len(port) != 0 {
 			portf = append(portf, fmt.Sprintf("(port %s)", port))
 		}
 	}
 	filters = h.AddFilters(filters, portf)
 
-	// servers filter
+	// IPs filter
 	var serverf []string
-	for _, server := range c.Server {
+	for _, server := range ips {
 		if len(server) != 0 {
 			serverf = append(serverf, fmt.Sprintf("(host %s)", server))
 		}
 	}
 	filters = h.AddFilters(filters, serverf)
 
-	// custom filter
-	if c.CustomFilter != "" {
-		filters = h.AddFilters(filters, []string{fmt.Sprintf("(%s)", c.CustomFilter)})
+	// Custom filter
+	if filter != "" {
+		filters = h.AddFilters(filters, []string{fmt.Sprintf("(%s)", filter)})
 	}
 
 	for i := range filters {
@@ -149,17 +156,17 @@ func (h *Hamburg) CreateFilter() error {
 }
 
 // AddFilters add some filter rules
-func (h *Hamburg) AddFilters(filters []string, add []string) []string {
+func (h *Hamburg) AddFilters(filters []string, ret []string) []string {
 	if len(filters) != 0 {
-		if len(add) != 0 {
+		if len(ret) != 0 {
 			for i := range filters {
-				filters[i] = fmt.Sprintf("%s and (%s)", filters[i], strings.Join(add, " or "))
+				filters[i] = fmt.Sprintf("%s and (%s)", filters[i], strings.Join(ret, " or "))
 			}
 		}
 		return filters
 	}
 
-	return add
+	return ret
 }
 
 // SavePackets save packets to local file
@@ -168,155 +175,4 @@ func (h *Hamburg) SavePackets(packet *gopacket.Packet) {
 	if s != nil && s.OutFileHWriter != nil {
 		s.OutFileHWriter.WritePacket((*packet).Metadata().CaptureInfo, (*packet).Data())
 	}
-}
-
-// RunCapture start capture packets
-func (h *Hamburg) RunCapture(sig chan os.Signal) {
-	// TODO: The defer execution takes a long time, how to optimize ?
-	defer h.Wg.Done()
-
-	s := h.Sniffer
-	s.StartTime = time.Now()
-
-	// pcap handle with local file or network interface
-	if err := h.CreatePcapHandle(); err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer s.PcapHandle.Close()
-
-	// create pcap filter
-	if err := h.CreateFilter(); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	// create pcap write handle to save packets to local file
-	if err := h.CreatePcapWriter(); err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer s.OutFileHandle.Close()
-
-	// start capture packets
-	packetSource := gopacket.NewPacketSource(s.PcapHandle, s.PcapHandle.LinkType())
-	for {
-		select {
-		case p := <-packetSource.Packets():
-			// save packets to local file
-			h.SavePackets(&p)
-
-			// process decoded packet by lua or predefined methods
-			h.ProcessPackets(&p, h.ParsePacketLayers(&p))
-			if !h.IsContinue() {
-				h.PrintStats()
-				return
-			}
-		case <-sig:
-			s.Quit = true
-		default:
-			if !h.IsContinue() {
-				h.PrintStats()
-				return
-			}
-		}
-	}
-}
-
-// ProcessPackets process decoding packets
-func (h *Hamburg) ProcessPackets(packet *gopacket.Packet, detail *utils.PacketDetail) {
-	s := h.Sniffer
-	c := h.Conf
-
-	// process packet with lua
-	if h.Lua != nil && h.Lua.LState != nil {
-		h.ProcessPacketsWithLua(detail)
-		return
-	}
-
-	reqid := fmt.Sprintf("%15s:%-5s => %15s:%-5s", detail.SrcIP, detail.SrcPort, detail.DstIP, detail.DstPort)
-	rspid := fmt.Sprintf("%15s:%-5s => %15s:%-5s", detail.DstIP, detail.DstPort, detail.SrcIP, detail.SrcPort)
-
-	if detail.Payload == "" {
-		if detail.Direction == "REQ" && detail.Flag&THSYN != 0 {
-			s.RequestDict.Remove(reqid)
-		}
-		if detail.Direction == "RSP" &&
-			(detail.Flag&THRST != 0 || detail.Flag&THFIN != 0) {
-			s.RequestDict.Remove(rspid)
-		}
-		return
-	}
-
-	if detail.Direction == "REQ" {
-		// noreply commands
-		if h.IsNoReply(detail.Payload) {
-			return
-		}
-		old, exits := s.RequestDict.Get(reqid)
-		if !exits {
-			s.RequestDict.Put(reqid, detail)
-		} else {
-			old.(*utils.PacketDetail).Content += " " + detail.Content
-		}
-	} else {
-		if reqd, exits := s.RequestDict.Get(rspid); exits {
-			dura := detail.Timestap.Sub(reqd.(*utils.PacketDetail).Timestap)
-			h.IncrTimeIntervalCount(dura)
-			if dura >= c.Threshold {
-				h.IncrSlowlogCount()
-				msg := fmt.Sprintf("%v || %s || %v || %v",
-					(reqd.(*utils.PacketDetail).Timestap).Format("2006-01-02 15:04:05"), rspid, dura,
-					reqd.(*utils.PacketDetail).Content)
-				if c.ShowResponse {
-					msg += fmt.Sprintf(" || %v", detail.Content)
-				}
-				fmt.Println(msg)
-			}
-			s.RequestDict.Remove(rspid)
-		}
-		// TODO: The statistical time-consuming of multiple reply packets may be small
-	}
-}
-
-// IsNoReply noreply commands
-func (h *Hamburg) IsNoReply(payload string) bool {
-	plen := len(payload)
-	switch h.Conf.Protocol {
-	case PTRedis:
-		return plen > 12 && strings.LastIndex(payload, "REPLCONF ACK") == 0
-	case PTMemcached:
-		for index, cmd := range noReplyCommands {
-			if strings.LastIndex(payload, cmd) == 0 {
-				if index >= 6 && plen > 7 && strings.Contains(payload[7:], "noreply") {
-					return true
-				}
-				return false
-			}
-		}
-		return false
-	default:
-		return false
-	}
-}
-
-// IsContinue whether to continue to capture packets
-func (h *Hamburg) IsContinue() bool {
-	c := h.Conf
-	s := h.Sniffer
-
-	if s.Quit {
-		return false
-	}
-
-	if c.Duration != 0 && time.Now().Sub(s.StartTime) > c.Duration {
-		return false
-	}
-
-	if c.Count != 0 && s.CapturedCount >= c.Count {
-		fmt.Println("Will stop capturing packets...")
-		return false
-	}
-
-	return true
 }

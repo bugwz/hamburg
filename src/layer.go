@@ -9,8 +9,8 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
-// ParsePacketLayers parse all layers
-func (h *Hamburg) ParsePacketLayers(packet *gopacket.Packet) *utils.PacketDetail {
+// LayersParser parse all layers
+func (h *Hamburg) LayersParser(packet *gopacket.Packet) *utils.PacketDetail {
 	s := h.Sniffer
 	c := h.Conf
 

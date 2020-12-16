@@ -36,16 +36,16 @@ Options:
 }
 
 func init() {
-	flag.StringVar(&interfile, "i", "", "monitor network card interface or offline pcap file")
-	flag.StringVar(&outfile, "o", "", "file to save the captured package")
-	flag.StringVar(&ips, "s", "", "capture packets of the specified ips, split multiple with commas")
-	flag.StringVar(&ports, "p", "", "capture packets of the specified ports, split multiple with commas")
-	flag.StringVar(&protocol, "m", "raw", "parse the contents of packets by raw/dns/http/redis/memcached/mysql")
-	flag.Int64Var(&slowdura, "t", 5, "slow request threshold, in units of millisecond")
-	flag.Int64Var(&duration, "d", 0, "maximum time of captured packets, in units of second  (default 0, no limit)")
-	flag.StringVar(&luafile, "x", "", "process packets with specialed lua script")
+	flag.StringVar(&interfile, "i", "", "monitor network interface or offline pcap file")
+	flag.StringVar(&outfile, "o", "", "outfile for the captured package")
+	flag.StringVar(&ips, "s", "", "filtered ip list, splited with commas")
+	flag.StringVar(&ports, "p", "", "filtered port list, splited with commas")
+	flag.StringVar(&protocol, "m", "raw", "packet protocol type with raw/dns/http/redis/memcached/mysql")
+	flag.Int64Var(&slowdura, "t", 1, "threshold for slow requests (millisecond)")
+	flag.Int64Var(&duration, "d", 0, "running time for capturing packets (second), (default unlimited)")
+	flag.StringVar(&luafile, "x", "", "lua script file")
 	flag.IntVar(&snaplen, "n", 1500, "maximum length of the captured data packet snaplen")
-	flag.StringVar(&filter, "e", "", "customized packet filter, the format is the same as tcpdump")
+	flag.StringVar(&filter, "e", "", "customized packet filter")
 	flag.BoolVar(&showrsp, "a", false, "show the contents of the reply packet (default false)")
 	flag.BoolVar(&help, "h", false, "help")
 

@@ -1,31 +1,43 @@
 package protocol
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/bugwz/hamburg/utils"
 )
 
-// redis payload first char
+// Redis payload first char
 const (
-	RedisSimpleString = '+'
-	RedisBulkString   = '$'
-	RedisInterger     = ':'
-	RedisArray        = '*'
 	RedisError        = '-'
+	RedisSimpleString = '+'
+	RedisInterger     = ':'
+	RedisBulkString   = '$'
+	RedisArray        = '*'
 )
 
 // RedisParser parse packets with redis protocol rules
 func RedisParser(d *utils.PacketDetail) {
-	var coms []string
-	payload := d.Payload
+	var cmds []string
+	p := d.Payload
 
-	if len(payload) > 0 {
-		switch payload[0] {
+	if len(p) > 0 {
+		switch p[0] {
+		case RedisError, RedisSimpleString, RedisInterger:
+			lines := strings.Split(p, "\r\n")
+			fmt.Println(lines)
+			if len(lines) == 2 {
+				cmds = append(cmds, lines[0][1:])
+			}
+		case RedisBulkString:
+			lines := strings.Split(p, "\r\n")
+			if len(lines) == 3 {
+				cmds = append(cmds, lines[1])
+			}
 		case RedisArray:
-			lines := strings.Split(payload, "\r\n")
+			lines := strings.Split(p, "\r\n")
 			for i := 2; i < len(lines); i += 2 {
-				// parse the request commands in the pipline
+				// Parse the request commands in the pipline
 				if len(lines[i]) < 1 || len(lines[i-1]) < 1 {
 					continue
 				}
@@ -33,12 +45,12 @@ func RedisParser(d *utils.PacketDetail) {
 					i = i - 1
 					continue
 				}
-				coms = append(coms, lines[i])
+				cmds = append(cmds, lines[i])
 			}
 		default:
-			coms = append(coms, strings.ReplaceAll(payload, "\r\n", " "))
+			cmds = append(cmds, strings.ReplaceAll(p, "\r\n", " "))
 		}
 	}
 
-	d.Content = strings.Join(coms, " ")
+	d.Content = strings.Join(cmds, " ")
 }

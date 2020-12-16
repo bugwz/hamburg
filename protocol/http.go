@@ -10,9 +10,9 @@ import (
 // HTTPParser parse packets with http protocol rules
 func HTTPParser(d *utils.PacketDetail) {
 	var rtype, host, path string
-	payload := d.Payload
+	p := d.Payload
 
-	pls := strings.Split(payload, "\r\n")
+	pls := strings.Split(p, "\r\n")
 	for _, it := range pls {
 		if strings.Contains(it, "Host: ") {
 			if info := strings.Split(it, " "); len(info) == 2 {

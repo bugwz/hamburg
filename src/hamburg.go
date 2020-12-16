@@ -75,7 +75,13 @@ func (h *Hamburg) Run() {
 	packetSource := gopacket.NewPacketSource(s.PcapHandle, s.PcapHandle.LinkType())
 	for {
 		select {
-		case <-h.done:
+		case exit := <-h.done:
+			switch exit {
+			case SignalExit:
+				fmt.Println("\r\nWill exit for signal...")
+			case TimeoutExit:
+				fmt.Println("\r\nWill exit for run timeout...")
+			}
 			h.Stats.ShowStats()
 			return
 		case p := <-packetSource.Packets():
@@ -83,7 +89,7 @@ func (h *Hamburg) Run() {
 			h.SavePackets(&p)
 
 			// Parse decoded packets
-			h.ParsePackets(&p, h.ParsePacketLayers(&p))
+			h.ParsePackets(&p, h.LayersParser(&p))
 		}
 	}
 }
@@ -143,12 +149,12 @@ func (h *Hamburg) ParsePackets(packet *gopacket.Packet, detail *utils.PacketDeta
 		if reqd, exits := s.RequestDict.Get(rspid); exits {
 			dura := detail.Timestap.Sub(reqd.(*utils.PacketDetail).Timestap)
 			h.Stats.IncrTimeIntervalCount(dura)
-			if dura >= c.slowdura {
+			if dura >= c.GetSlowDura() {
 				h.Stats.IncrSlowlogCount()
 				msg := fmt.Sprintf("%v || %s || %v || %v",
 					(reqd.(*utils.PacketDetail).Timestap).Format("2006-01-02 15:04:05"), rspid, dura,
 					reqd.(*utils.PacketDetail).Content)
-				if c.showrsp {
+				if c.GetShowrsp() {
 					msg += fmt.Sprintf(" || %v", detail.Content)
 				}
 				fmt.Println(msg)

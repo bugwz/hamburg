@@ -1,18 +1,16 @@
 package protocol
 
 import (
-	"fmt"
 	"strings"
 )
 
 // MongoDBParser parse packets with mongodb protocol rules
-func MongoDBParser(payload string) {
-	if len(payload) > 0 && payload[:1] == "*" {
-		var coms []string
-		lines := strings.Split(payload, "\r\n")
+func MongoDBParser(p string) {
+	if len(p) > 0 && p[:1] == "*" {
+		var cmds []string
+		lines := strings.Split(p, "\r\n")
 		for i := 2; i < len(lines); i += 2 {
-			coms = append(coms, lines[i])
+			cmds = append(cmds, lines[i])
 		}
-		fmt.Println("指令为： ", strings.Join(coms, " "))
 	}
 }

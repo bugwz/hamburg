@@ -55,29 +55,27 @@ A tool to capture data packets and time-consuming analysis.
 Options:
 
   -i string
-    	monitor network card interface or offline pcap file
+        monitor network interface or offline pcap file
   -o string
-    	file to save the captured package
+        outfile for the captured package
   -s string
-    	capture packets of the specified ips, split multiple with commas
+        filtered ip list, splited with commas
   -p string
-    	capture packets of the specified ports, split multiple with commas
+        filtered port list, splited with commas
   -m string
-    	parse the contents of packets by raw/dns/http/redis/memcached/mysql (default "raw")
+        packet protocol type with raw/dns/http/redis/memcached/mysql (default "raw")
   -t int
-    	slow request threshold, in units of millisecond (default 5)
-  -c int
-    	maximum number of captured packets (default 0, no limit)
+        threshold for slow requests (millisecond) (default 1)
   -d int
-    	maximum time of captured packets, in units of second  (default 0, no limit)
+        running time for capturing packets (second), (default unlimited)
   -x string
-    	process packets with specialed lua script
+        lua script file
   -n int
-    	maximum length of the captured data packet snaplen (default 1500)
+        maximum length of the captured data packet snaplen (default 1500)
   -e string
-    	customized packet filter, the format is the same as tcpdump
-  -a	show the contents of the reply packet (default false)
-  -h	help
+        customized packet filter
+  -a    show the contents of the reply packet (default false)
+  -h    help
 ```
 
 ## Examples [示例]

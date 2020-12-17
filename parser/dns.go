@@ -3,8 +3,6 @@ package parser
 import (
 	"fmt"
 	"strings"
-
-	"github.com/bugwz/hamburg/utils"
 )
 
 /* DNS payload format (https://www.ietf.org/rfc/rfc1035.txt)
@@ -132,12 +130,15 @@ var DNSClass = map[int]string{
 	DCHS: "HS", // Hesiod [Dyer 87]
 }
 
-// DNSParser parse packets with http protocol rules
-func DNSParser(d *utils.Packet) {
-	var code, qcount, acount, qr, pos, nextpos int
-	meta := []byte(d.Payload)
+// DNSParser dns parser
+type DNSParser struct{}
 
-	// parse header meta info
+// Run parse packets
+func (*DNSParser) Run(v *Packet) {
+	var code, qcount, acount, qr, pos, nextpos int
+	meta := []byte(v.Payload)
+
+	// Parse header meta info
 	if len(meta) < 12 {
 		return
 	}
@@ -150,9 +151,9 @@ func DNSParser(d *utils.Packet) {
 	qr = code >> 15 // qr code is used to distinguish between request(0) and response(1)
 	pos = 12
 
-	// request
+	// Request
 	if qr == 0 {
-		d.Direction = "REQ"
+		v.Request = true
 		var domains []string
 		for i := 0; i < qcount; i++ {
 			var dmeta []string
@@ -167,7 +168,7 @@ func DNSParser(d *utils.Packet) {
 			}
 			pos++
 
-			// query type
+			// Query type
 			qtid := (int(meta[pos]) << 8) | int(meta[pos+1])
 			qtype := fmt.Sprintf("%d", qtid)
 			if DNSType[qtid] != "" {
@@ -177,12 +178,12 @@ func DNSParser(d *utils.Packet) {
 			domains = append(domains, fmt.Sprintf("[%s] %s", qtype, strings.Join(dmeta, ".")))
 
 		}
-		d.Content = strings.Join(domains, ", ")
+		v.Content = strings.Join(domains, ", ")
 		return
 	}
 
-	// response
-	d.Direction = "RSP"
+	// Response
+	v.Request = false
 	for i := 0; i < qcount; i++ {
 		size := int(meta[pos])
 		for size != 0 {
@@ -195,15 +196,16 @@ func DNSParser(d *utils.Packet) {
 		pos += 5
 	}
 
-	// parse dns answer data
+	// Parse dns answer data
 	records := make(map[string][]string)
 	for i := 0; i < acount; i++ {
 		if len(meta) <= pos+10 {
 			break
 		}
-		pos += 2 // ignore answer name
+		// Ignore answer name
+		pos += 2
 
-		// answer type
+		// Answer type
 		atid := (int(meta[pos]) << 8) | int(meta[pos+1])
 		atype := fmt.Sprintf("%d", atid)
 		if DNSType[atid] != "" {
@@ -211,11 +213,11 @@ func DNSParser(d *utils.Packet) {
 		}
 		pos += 8 // atype(2 bytes), aclass(2 bytes), ttl(2bytes)
 
-		// answer data length
+		// Answer data length
 		datalen := (int(meta[pos]) << 8) | int(meta[pos+1])
 		pos += 2
 
-		// parse answer record
+		// Parse answer record
 		switch atid {
 		case DNSTypeA:
 			if len(meta) <= pos+4 {
@@ -248,15 +250,15 @@ func DNSParser(d *utils.Packet) {
 		}
 	}
 
-	// organize dns reply packets
-	var contents string
+	// Organize dns reply packets
+	var cnts string
 	for n, v := range records {
 		var rs []string
 		for _, record := range v {
 			rs = append(rs, record)
 		}
-		contents += fmt.Sprintf("[%s] %s; ", n, strings.Join(rs, "/"))
+		cnts += fmt.Sprintf("[%s] %s; ", n, strings.Join(rs, "/"))
 	}
 
-	d.Content = contents
+	v.Content = cnts
 }

@@ -1,10 +1,7 @@
 package parser
 
 import (
-	"fmt"
 	"strings"
-
-	"github.com/bugwz/hamburg/utils"
 )
 
 // Redis payload first char
@@ -16,16 +13,18 @@ const (
 	RedisArray        = '*'
 )
 
-// RedisParser parse packets with redis protocol rules
-func RedisParser(d *utils.Packet) {
+// RedisParser redis parser
+type RedisParser struct{}
+
+// Run parse packets
+func (r *RedisParser) Run(v *Packet) {
 	var cmds []string
-	p := d.Payload
+	p := v.Payload
 
 	if len(p) > 0 {
 		switch p[0] {
 		case RedisError, RedisSimpleString, RedisInterger:
 			lines := strings.Split(p, "\r\n")
-			fmt.Println(lines)
 			if len(lines) == 2 {
 				cmds = append(cmds, lines[0][1:])
 			}
@@ -52,5 +51,5 @@ func RedisParser(d *utils.Packet) {
 		}
 	}
 
-	d.Content = strings.Join(cmds, " ")
+	v.Content = strings.Join(cmds, " ")
 }

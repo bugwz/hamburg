@@ -9,7 +9,6 @@ import (
 	"time"
 
 	p "github.com/bugwz/hamburg/parser"
-	"github.com/bugwz/hamburg/utils"
 	"github.com/google/gopacket"
 )
 
@@ -24,6 +23,7 @@ type Hamburg struct {
 	Conf    *Conf
 	Stats   *Stats
 	Sniffer *Sniffer
+	Parser  p.Parser
 	done    chan int
 }
 
@@ -33,6 +33,7 @@ func NewHamburg() *Hamburg {
 		Conf:    NewConf(),
 		Sniffer: NewSniffer(),
 		Stats:   NewStats(),
+		Parser:  p.NewParser(p.DefaultParser),
 		done:    make(chan int),
 	}
 }
@@ -89,8 +90,54 @@ func (h *Hamburg) Run() {
 			h.SavePackets(&p)
 
 			// Parse decoded packets
-			h.ParsePackets(h.LayersParser(&p))
+			v := h.UnpackLayers(&p)
+
+			// Check direction
+			h.SetRequest(v)
+
+			// Parse
+			h.ParsePackets(v)
 		}
+	}
+}
+
+// SetRequest set request
+func (h *Hamburg) SetRequest(v *p.Packet) {
+	s := h.Sniffer
+
+	// Set direction
+	if s.LocalIPs[v.SrcIP] != "" {
+		v.Request = false
+	}
+	if s.LocalIPs[v.DstIP] != "" {
+		v.Request = true
+	}
+
+	// Set direction
+	if v.SrcPort != "" && v.DstPort != "" {
+		for _, port := range h.Conf.GetPorts() {
+			if v.SrcPort == port {
+				v.Request = false
+				break
+			}
+			if v.DstPort == port {
+				v.Request = true
+				break
+			}
+		}
+
+		if v.SrcIP != "" && v.DstIP != "" {
+			reqid := fmt.Sprintf("%s:%s => %s:%s", v.DstIP, v.DstPort, v.SrcIP, v.SrcPort)
+			if _, exits := s.RequestDict.Get(reqid); exits {
+				v.Request = false
+			}
+		}
+	}
+
+	if v.Request {
+		h.Stats.IncrRequest(1)
+	} else {
+		h.Stats.IncrResponse(1)
 	}
 }
 
@@ -113,51 +160,54 @@ func (h *Hamburg) Scheduler() {
 }
 
 // ParsePackets process decoding packets
-func (h *Hamburg) ParsePackets(d *utils.Packet) {
+func (h *Hamburg) ParsePackets(v *p.Packet) {
 	s := h.Sniffer
 	c := h.Conf
 
 	// Try parse packets with with lua script
-	if h.Conf.script.Run(d) == nil {
+	if h.Conf.script.Run(v) == nil {
 		return
 	}
 
-	srcid := fmt.Sprintf("%s:%s", d.SrcIP, d.SrcPort)
-	dstid := fmt.Sprintf("%s:%s", d.DstIP, d.DstPort)
+	// Parse payload
+	h.Parser.Run(v)
+
+	srcid := fmt.Sprintf("%s:%s", v.SrcIP, v.SrcPort)
+	dstid := fmt.Sprintf("%s:%s", v.DstIP, v.DstPort)
 	reqid := fmt.Sprintf("%s -> %s", srcid, dstid)
 	rspid := fmt.Sprintf("%s -> %s", dstid, srcid)
-	if d.Payload == "" {
-		if d.Direction == "REQ" && d.Flag&SYN != 0 {
+	if v.Payload == "" {
+		if v.Request && v.Flag&SYN != 0 {
 			s.RequestDict.Remove(reqid)
 		}
-		if d.Direction == "RSP" && (d.Flag&RST != 0 || d.Flag&FIN != 0) {
+		if !v.Request && (v.Flag&RST != 0 || v.Flag&FIN != 0) {
 			s.RequestDict.Remove(rspid)
 		}
 		return
 	}
 
-	if d.Direction == "REQ" {
+	if v.Request {
 		// Filter noreply commands
-		if h.IsNoReply(d.Payload) {
+		if h.IsNoReply(v.Payload) {
 			return
 		}
 		old, exits := s.RequestDict.Get(reqid)
 		if !exits {
-			s.RequestDict.Put(reqid, d)
+			s.RequestDict.Put(reqid, v)
 		} else {
-			old.(*utils.Packet).Content += " " + d.Content
+			old.(*p.Packet).Content += " " + v.Content
 		}
 	} else {
 		if reqd, exits := s.RequestDict.Get(rspid); exits {
-			dura := d.Timestap.Sub(reqd.(*utils.Packet).Timestap)
+			dura := v.Timestap.Sub(reqd.(*p.Packet).Timestap)
 			h.Stats.AddDuration(dura)
 			if dura >= c.GetSlowDura() {
 				h.Stats.IncrSlowlog(1)
 				msg := fmt.Sprintf("%v | %s | %v | %v",
-					(reqd.(*utils.Packet).Timestap).Format("2006-01-02 15:04:05"), rspid, dura,
-					reqd.(*utils.Packet).Content)
+					(reqd.(*p.Packet).Timestap).Format("2006-01-02 15:04:05"), rspid, dura,
+					reqd.(*p.Packet).Content)
 				if c.GetShowrsp() {
-					msg += fmt.Sprintf(" | %v", d.Content)
+					msg += fmt.Sprintf(" | %v", v.Content)
 				}
 				fmt.Println(msg)
 			}
@@ -193,27 +243,5 @@ func (h *Hamburg) SavePackets(p *gopacket.Packet) {
 	s := h.Sniffer
 	if s != nil && s.OutFileHWriter != nil {
 		s.OutFileHWriter.WritePacket((*p).Metadata().CaptureInfo, (*p).Data())
-	}
-}
-
-// PayloadParser parse payload
-func (h *Hamburg) PayloadParser(d *utils.Packet) {
-	if d.Payload != "" {
-		switch h.Conf.GetProtocol() {
-		case p.RAW:
-			p.RAWParser(d)
-		case p.DNS:
-			p.DNSParser(d)
-		case p.HTTP:
-			p.HTTPParser(d)
-		case p.Redis:
-			p.RedisParser(d)
-		case p.Memcached:
-			p.MemcachedParser(d)
-		case p.MySQL:
-			p.MySQLParser(d)
-		default:
-			d.Content = ""
-		}
 	}
 }

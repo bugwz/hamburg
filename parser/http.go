@@ -3,27 +3,27 @@ package parser
 import (
 	"fmt"
 	"strings"
-
-	"github.com/bugwz/hamburg/utils"
 )
 
-// HTTPParser parse packets with http protocol rules
-func HTTPParser(d *utils.Packet) {
-	var rtype, host, path string
-	p := d.Payload
+// HTTPParser http parser
+type HTTPParser struct{}
 
-	pls := strings.Split(p, "\r\n")
+// Run parse packets
+func (h *HTTPParser) Run(v *Packet) {
+	var rtype, host, path string
+
+	pls := strings.Split(v.Payload, "\r\n")
 	for _, it := range pls {
 		if strings.Contains(it, "Host: ") {
 			if info := strings.Split(it, " "); len(info) == 2 {
-				d.Direction = "REQ"
+				v.Request = true
 				host = info[1]
 				break
 			}
 		}
 		if strings.Contains(it, "Server: ") {
 			if info := strings.Split(it, " "); len(info) == 2 {
-				d.Direction = "RSP"
+				v.Request = false
 				host = info[1]
 				break
 			}
@@ -31,17 +31,17 @@ func HTTPParser(d *utils.Packet) {
 	}
 
 	if len(pls) > 2 {
-		if d.Direction == "REQ" {
+		if v.Request {
 			if info := strings.Split(pls[0], " "); len(info) >= 3 {
 				rtype = fmt.Sprintf("[%s %s]", info[2], info[0])
 				path = info[1]
 			}
-		}
-		if d.Direction == "RSP" {
+		} else {
 			if info := strings.Split(pls[0], " "); len(info) >= 2 {
 				rtype = fmt.Sprintf("[%s %s]", info[0], info[1])
 			}
 		}
 	}
-	d.Content = fmt.Sprintf("%s %s%s", rtype, host, path)
+
+	v.Content = fmt.Sprintf("%s %s%s", rtype, host, path)
 }

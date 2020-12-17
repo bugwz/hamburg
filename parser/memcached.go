@@ -2,11 +2,12 @@ package parser
 
 import (
 	"strings"
-
-	"github.com/bugwz/hamburg/utils"
 )
 
-// MemcachedParser parse packets with memcached protocol rules
-func MemcachedParser(d *utils.Packet) {
-	d.Content = strings.ReplaceAll(d.Payload, "\r\n", " ")
+// MemcachedParser memcached parser
+type MemcachedParser struct{}
+
+// Run parse packets
+func (m *MemcachedParser) Run(v *Packet) {
+	v.Content = strings.ReplaceAll(v.Payload, "\r\n", " ")
 }

@@ -5,31 +5,9 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/google/gopacket/pcap"
 )
-
-// Packet save request/response packets detail
-type Packet struct {
-	Type       string
-	Direction  string
-	SrcMAC     string
-	SrcIP      string
-	SrcPort    string
-	DstMAC     string
-	DstIP      string
-	DstPort    string
-	CheckSum   string
-	Sequence   string
-	ACK        string
-	Flag       int
-	FlagStr    string
-	Payload    string
-	PayloadLen int
-	Content    string
-	Timestap   time.Time
-}
 
 // FileIsExist check file
 func FileIsExist(f string) bool {

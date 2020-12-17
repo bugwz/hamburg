@@ -4,58 +4,45 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bugwz/hamburg/utils"
+	p "github.com/bugwz/hamburg/parser"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )
 
-// LayersParser parse all layers
-func (h *Hamburg) LayersParser(packet *gopacket.Packet) *utils.Packet {
-	s := h.Sniffer
-	c := h.Conf
-
-	s.CapturedCount++
-	d := &utils.Packet{Type: h.GetLayers(*packet)}
-	d.Timestap = (*packet).Metadata().CaptureInfo.Timestamp
+// UnpackLayers parse all layers
+func (h *Hamburg) UnpackLayers(packet *gopacket.Packet) *p.Packet {
+	v := &p.Packet{Type: h.GetLayers(*packet)}
+	v.Timestap = (*packet).Metadata().CaptureInfo.Timestamp
 
 	// Ethernet layer
 	if ethernet := h.ParseEthernetLayer(*packet); ethernet != nil {
-		d.SrcMAC = ethernet.SrcMAC.String()
-		d.DstMAC = ethernet.DstMAC.String()
+		v.SrcMAC = ethernet.SrcMAC.String()
+		v.DstMAC = ethernet.DstMAC.String()
 	}
 
 	// IP layer
 	if ip := h.ParseIPLayer(*packet); ip != nil {
-		d.SrcIP = fmt.Sprintf("%s", ip.SrcIP)
-		d.DstIP = fmt.Sprintf("%s", ip.DstIP)
-
-		// Set direction
-		d.Direction = "None"
-		if s.LocalIPs[d.SrcIP] != "" {
-			d.Direction = "RSP"
-		}
-		if s.LocalIPs[d.DstIP] != "" {
-			d.Direction = "REQ"
-		}
+		v.SrcIP = fmt.Sprintf("%s", ip.SrcIP)
+		v.DstIP = fmt.Sprintf("%s", ip.DstIP)
 	}
 
 	// UDP layer
 	if udp := h.ParseUDPLayer(*packet); udp != nil {
-		d.SrcPort = fmt.Sprintf("%d", udp.SrcPort)
-		d.DstPort = fmt.Sprintf("%d", udp.DstPort)
-		d.CheckSum = fmt.Sprintf("%d", udp.Checksum)
-		d.PayloadLen = int(udp.Length)
-		d.Payload = string(udp.BaseLayer.LayerPayload())
+		v.SrcPort = fmt.Sprintf("%d", udp.SrcPort)
+		v.DstPort = fmt.Sprintf("%d", udp.DstPort)
+		v.CheckSum = fmt.Sprintf("%d", udp.Checksum)
+		v.PayloadLen = int(udp.Length)
+		v.Payload = string(udp.BaseLayer.LayerPayload())
 	}
 
 	// TCP layer
 	if tcp := h.ParseTCPLayer(*packet); tcp != nil {
-		d.SrcPort = fmt.Sprintf("%d", tcp.SrcPort)
-		d.DstPort = fmt.Sprintf("%d", tcp.DstPort)
-		d.CheckSum = fmt.Sprintf("%d", tcp.Checksum)
-		d.Sequence = fmt.Sprintf("%d", tcp.Seq)
+		v.SrcPort = fmt.Sprintf("%d", tcp.SrcPort)
+		v.DstPort = fmt.Sprintf("%d", tcp.DstPort)
+		v.CheckSum = fmt.Sprintf("%d", tcp.Checksum)
+		v.Sequence = fmt.Sprintf("%d", tcp.Seq)
 
-		// Parse flag
+		// Parse flags
 		var fstr []string
 		fint := 0
 		if tcp.FIN {
@@ -90,49 +77,20 @@ func (h *Hamburg) LayersParser(packet *gopacket.Packet) *utils.Packet {
 			fint |= CWR
 			fstr = append(fstr, "CWR")
 		}
-		d.Flag = fint
-		d.FlagStr = strings.Join(fstr, ",")
-		d.ACK = fmt.Sprintf("%d", tcp.Ack)
-	}
-
-	// Set direction
-	if d.SrcPort != "" && d.DstPort != "" {
-		for _, port := range c.ports {
-			if d.SrcPort == port {
-				d.Direction = "RSP"
-				break
-			}
-			if d.DstPort == port {
-				d.Direction = "REQ"
-				break
-			}
-		}
-
-		if d.SrcIP != "" && d.DstIP != "" {
-			reqid := fmt.Sprintf("%s:%s => %s:%s", d.DstIP, d.DstPort, d.SrcIP, d.SrcPort)
-			if _, exits := s.RequestDict.Get(reqid); exits {
-				d.Direction = "RSP"
-			}
-		}
+		v.Flag = fint
+		v.FlagStr = strings.Join(fstr, ",")
+		v.ACK = fmt.Sprintf("%d", tcp.Ack)
 	}
 
 	// Parse payload
 	if app := (*packet).ApplicationLayer(); app != nil {
 		if string(app.Payload()) != "" {
-			d.Payload = string(app.Payload())
-			d.PayloadLen = (*packet).Metadata().CaptureLength
+			v.Payload = string(app.Payload())
+			v.PayloadLen = (*packet).Metadata().CaptureLength
 		}
 	}
-	h.PayloadParser(d)
 
-	// Update stats
-	if d.Direction == "REQ" {
-		h.Stats.IncrRequest(1)
-	} else if d.Direction == "RSP" {
-		h.Stats.IncrResponse(1)
-	}
-
-	return d
+	return v
 }
 
 // GetLayers layers

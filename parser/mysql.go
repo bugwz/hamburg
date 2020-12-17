@@ -1,10 +1,6 @@
 package parser
 
-import (
-	"github.com/bugwz/hamburg/utils"
-)
-
-/* mysql protocol packet format
+/* Mysql protocol packet format
 
 https://dev.mysql.com/doc/dev/mysql-server/8.0.11/page_protocol_basic_packets.html#sect_protocol_basic_packets_packet
 
@@ -18,7 +14,7 @@ https://dev.mysql.com/doc/dev/mysql-server/8.0.11/page_protocol_basic_packets.ht
 |<=======  header  =======>|<===========   body   =============>|
 */
 
-// mysql client request type in payload body
+// Mysql client request type in payload body
 const (
 	MySQLSleep            = 0x00 // 0
 	MySQLQuit             = 0x01 // 1, mysql_close
@@ -56,7 +52,7 @@ const (
 	// MySQL0x00            = 0x00
 )
 
-// mysql server response type in payload body
+// Mysql server response type in payload body
 const (
 	MySQLOK    = 0x00
 	MySQLError = 0xFF
@@ -66,10 +62,13 @@ const (
 	// RowData   = 0x01 - 0xFA
 )
 
-// MySQLParser parse packets with mysql protocol rules
-func MySQLParser(d *utils.Packet) {
+// MySQLParser mysql parser
+type MySQLParser struct{}
+
+// Run parse packets
+func (m *MySQLParser) Run(v *Packet) {
 	var pos int
-	p := []byte(d.Payload)
+	p := []byte(v.Payload)
 	if len(p) < 5 {
 		return
 	}
@@ -81,41 +80,41 @@ func MySQLParser(d *utils.Packet) {
 		return
 	}
 
-	// request
+	// Request
 	pos = 4
-	if d.Direction == "REQ" {
+	if v.Request {
 		switch p[pos] {
 		case MySQLQuit, MySQLInitDB, MySQLQuery, MySQLFieldList, MySQLCreateDB,
 			MySQLDropDB, MySQLRefresh, MySQLShutdown, MySQLStatistics,
 			MySQLProcessInfo, MySQLProcessKill, MySQLPing, MySQLChangeUser,
 			MySQLStmtPrepare:
-			d.Content = string(p[pos+1:])
+			v.Content = string(p[pos+1:])
 		case MySQLStmtSendLongData:
 			// TODO: parse payload
-			d.Content = ""
+			v.Content = ""
 		case MySQLStmtReset:
 			// TODO: parse payload
-			d.Content = ""
+			v.Content = ""
 		case MySQLStmtExecute:
 			// TODO: parse payload
-			d.Content = ""
+			v.Content = ""
 		default:
-			d.Content = ""
+			v.Content = ""
 		}
 
 		return
 	}
 
-	// response
+	// Response
 	pos = 0
 	switch p[pos] {
 	case MySQLOK:
-		d.Content = "ok"
+		v.Content = "ok"
 	case MySQLError:
-		d.Content = "error"
+		v.Content = "error"
 	case MySQLEOF:
-		d.Content = ""
+		v.Content = ""
 	default:
-		d.Content = "not find case"
+		v.Content = "not find case"
 	}
 }

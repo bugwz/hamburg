@@ -10,8 +10,8 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// PacketDetail save request/response packets detail
-type PacketDetail struct {
+// Packet save request/response packets detail
+type Packet struct {
 	Type       string
 	Direction  string
 	SrcMAC     string
@@ -32,8 +32,8 @@ type PacketDetail struct {
 }
 
 // FileIsExist check file
-func FileIsExist(file string) bool {
-	if _, err := os.Stat(file); err != nil {
+func FileIsExist(f string) bool {
+	if _, err := os.Stat(f); err != nil {
 		if os.IsNotExist(err) {
 			return false
 		}

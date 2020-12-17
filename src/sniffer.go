@@ -8,7 +8,6 @@ import (
 
 	"github.com/bugwz/hamburg/utils"
 	"github.com/emirpasic/gods/maps/hashmap"
-	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
@@ -114,65 +113,53 @@ func (h *Hamburg) CreatePcapWriter() error {
 
 // CreateFilter packet filtering rules
 func (h *Hamburg) CreateFilter() error {
-	var filters []string
-	var portf []string
-	s := h.Sniffer
-	c := h.Conf
-	ips := c.GetIPs()
-	ports := c.GetPorts()
-	filter := c.GetFilter()
+	var fts []string
+	var pfts []string
 
 	// Ports filter
-	for _, port := range ports {
+	for _, port := range h.Conf.GetPorts() {
 		if len(port) != 0 {
-			portf = append(portf, fmt.Sprintf("(port %s)", port))
+			pfts = append(pfts, fmt.Sprintf("(port %s)", port))
 		}
 	}
-	filters = h.AddFilters(filters, portf)
+	fts = h.AddFilters(fts, pfts)
 
 	// IPs filter
 	var serverf []string
-	for _, server := range ips {
+	for _, server := range h.Conf.GetIPs() {
 		if len(server) != 0 {
 			serverf = append(serverf, fmt.Sprintf("(host %s)", server))
 		}
 	}
-	filters = h.AddFilters(filters, serverf)
+	fts = h.AddFilters(fts, serverf)
 
 	// Custom filter
-	if filter != "" {
-		filters = h.AddFilters(filters, []string{fmt.Sprintf("(%s)", filter)})
+	ft := h.Conf.GetFilter()
+	if ft != "" {
+		fts = h.AddFilters(fts, []string{fmt.Sprintf("(%s)", ft)})
 	}
 
-	for i := range filters {
-		filters[i] = fmt.Sprintf("(%s)", filters[i])
+	for i := range fts {
+		fts[i] = fmt.Sprintf("(%s)", fts[i])
 	}
-	if err := s.PcapHandle.SetBPFFilter(strings.Join(filters, " or ")); err != nil {
+	if err := h.Sniffer.PcapHandle.SetBPFFilter(strings.Join(fts, " or ")); err != nil {
 		return fmt.Errorf("Set bpf filter faile: %v", err)
 	}
 
-	fmt.Printf("\r\nStart capturing packet with filter: %v\r\n", strings.Join(filters, " or "))
+	fmt.Printf("\r\nStart capturing packet with filter: %v\r\n", strings.Join(fts, " or "))
 	return nil
 }
 
 // AddFilters add some filter rules
-func (h *Hamburg) AddFilters(filters []string, ret []string) []string {
-	if len(filters) != 0 {
+func (h *Hamburg) AddFilters(fts []string, ret []string) []string {
+	if len(fts) != 0 {
 		if len(ret) != 0 {
-			for i := range filters {
-				filters[i] = fmt.Sprintf("%s and (%s)", filters[i], strings.Join(ret, " or "))
+			for i := range fts {
+				fts[i] = fmt.Sprintf("%s and (%s)", fts[i], strings.Join(ret, " or "))
 			}
 		}
-		return filters
+		return fts
 	}
 
 	return ret
-}
-
-// SavePackets save packets to local file
-func (h *Hamburg) SavePackets(packet *gopacket.Packet) {
-	s := h.Sniffer
-	if s != nil && s.OutFileHWriter != nil {
-		s.OutFileHWriter.WritePacket((*packet).Metadata().CaptureInfo, (*packet).Data())
-	}
 }

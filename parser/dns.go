@@ -133,7 +133,7 @@ var DNSClass = map[int]string{
 }
 
 // DNSParser parse packets with http protocol rules
-func DNSParser(d *utils.PacketDetail) {
+func DNSParser(d *utils.Packet) {
 	var code, qcount, acount, qr, pos, nextpos int
 	meta := []byte(d.Payload)
 

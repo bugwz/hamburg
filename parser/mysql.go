@@ -67,7 +67,7 @@ const (
 )
 
 // MySQLParser parse packets with mysql protocol rules
-func MySQLParser(d *utils.PacketDetail) {
+func MySQLParser(d *utils.Packet) {
 	var pos int
 	p := []byte(d.Payload)
 	if len(p) < 5 {

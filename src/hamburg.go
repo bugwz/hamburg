@@ -42,36 +42,36 @@ func (h *Hamburg) Run() {
 	s := h.Sniffer
 	s.StartTime = time.Now()
 
-	// Check confs
+	// 1) Check confs
 	if err := h.Conf.CheckConfs(); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	// Pcap handle with local file or network interface
+	// 2) Pcap handle with local file or network interface
 	if err := h.CreatePcapHandle(); err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer s.PcapHandle.Close()
 
-	// Create pcap filter
+	// 3) Create pcap filter
 	if err := h.CreateFilter(); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	// Create pcap write handle to save packets to local file
+	// 4) Create pcap write handle to save packets to local file
 	if err := h.CreatePcapWriter(); err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer s.OutFileHandle.Close()
 
-	// Schedule process
+	// 5) Schedule process
 	h.Scheduler()
 
-	// Start capture packets
+	// 6) Start capture packets
 	packetSource := gopacket.NewPacketSource(s.PcapHandle, s.PcapHandle.LinkType())
 	for {
 		select {
@@ -89,7 +89,7 @@ func (h *Hamburg) Run() {
 			h.SavePackets(&p)
 
 			// Parse decoded packets
-			h.ParsePackets(&p, h.LayersParser(&p))
+			h.ParsePackets(h.LayersParser(&p))
 		}
 	}
 }
@@ -113,49 +113,51 @@ func (h *Hamburg) Scheduler() {
 }
 
 // ParsePackets process decoding packets
-func (h *Hamburg) ParsePackets(packet *gopacket.Packet, detail *utils.PacketDetail) {
+func (h *Hamburg) ParsePackets(d *utils.Packet) {
 	s := h.Sniffer
 	c := h.Conf
 
 	// Try parse packets with with lua script
-	if h.Conf.script.Run(detail) == nil {
+	if h.Conf.script.Run(d) == nil {
 		return
 	}
 
-	reqid := fmt.Sprintf("%15s:%-5s => %15s:%-5s", detail.SrcIP, detail.SrcPort, detail.DstIP, detail.DstPort)
-	rspid := fmt.Sprintf("%15s:%-5s => %15s:%-5s", detail.DstIP, detail.DstPort, detail.SrcIP, detail.SrcPort)
-	if detail.Payload == "" {
-		if detail.Direction == "REQ" && detail.Flag&SYN != 0 {
+	srcid := fmt.Sprintf("%s:%s", d.SrcIP, d.SrcPort)
+	dstid := fmt.Sprintf("%s:%s", d.DstIP, d.DstPort)
+	reqid := fmt.Sprintf("%s -> %s", srcid, dstid)
+	rspid := fmt.Sprintf("%s -> %s", dstid, srcid)
+	if d.Payload == "" {
+		if d.Direction == "REQ" && d.Flag&SYN != 0 {
 			s.RequestDict.Remove(reqid)
 		}
-		if detail.Direction == "RSP" && (detail.Flag&RST != 0 || detail.Flag&FIN != 0) {
+		if d.Direction == "RSP" && (d.Flag&RST != 0 || d.Flag&FIN != 0) {
 			s.RequestDict.Remove(rspid)
 		}
 		return
 	}
 
-	if detail.Direction == "REQ" {
+	if d.Direction == "REQ" {
 		// Filter noreply commands
-		if h.IsNoReply(detail.Payload) {
+		if h.IsNoReply(d.Payload) {
 			return
 		}
 		old, exits := s.RequestDict.Get(reqid)
 		if !exits {
-			s.RequestDict.Put(reqid, detail)
+			s.RequestDict.Put(reqid, d)
 		} else {
-			old.(*utils.PacketDetail).Content += " " + detail.Content
+			old.(*utils.Packet).Content += " " + d.Content
 		}
 	} else {
 		if reqd, exits := s.RequestDict.Get(rspid); exits {
-			dura := detail.Timestap.Sub(reqd.(*utils.PacketDetail).Timestap)
-			h.Stats.IncrTimeIntervalCount(dura)
+			dura := d.Timestap.Sub(reqd.(*utils.Packet).Timestap)
+			h.Stats.AddDuration(dura)
 			if dura >= c.GetSlowDura() {
-				h.Stats.IncrSlowlogCount()
-				msg := fmt.Sprintf("%v || %s || %v || %v",
-					(reqd.(*utils.PacketDetail).Timestap).Format("2006-01-02 15:04:05"), rspid, dura,
-					reqd.(*utils.PacketDetail).Content)
+				h.Stats.IncrSlowlog(1)
+				msg := fmt.Sprintf("%v | %s | %v | %v",
+					(reqd.(*utils.Packet).Timestap).Format("2006-01-02 15:04:05"), rspid, dura,
+					reqd.(*utils.Packet).Content)
 				if c.GetShowrsp() {
-					msg += fmt.Sprintf(" || %v", detail.Content)
+					msg += fmt.Sprintf(" | %v", d.Content)
 				}
 				fmt.Println(msg)
 			}
@@ -166,15 +168,15 @@ func (h *Hamburg) ParsePackets(packet *gopacket.Packet, detail *utils.PacketDeta
 }
 
 // IsNoReply noreply commands
-func (h *Hamburg) IsNoReply(payload string) bool {
-	plen := len(payload)
+func (h *Hamburg) IsNoReply(pl string) bool {
+	plen := len(pl)
 	switch h.Conf.protocol {
 	case p.Redis:
-		return plen > 12 && strings.LastIndex(payload, "REPLCONF ACK") == 0
+		return plen > 12 && strings.LastIndex(pl, "REPLCONF ACK") == 0
 	case p.Memcached:
 		for index, cmd := range noReplyCommands {
-			if strings.LastIndex(payload, cmd) == 0 {
-				if index >= 6 && plen > 7 && strings.Contains(payload[7:], "noreply") {
+			if strings.LastIndex(pl, cmd) == 0 {
+				if index >= 6 && plen > 7 && strings.Contains(pl[7:], "noreply") {
 					return true
 				}
 				return false
@@ -186,8 +188,16 @@ func (h *Hamburg) IsNoReply(payload string) bool {
 	}
 }
 
+// SavePackets save packets to local file
+func (h *Hamburg) SavePackets(p *gopacket.Packet) {
+	s := h.Sniffer
+	if s != nil && s.OutFileHWriter != nil {
+		s.OutFileHWriter.WritePacket((*p).Metadata().CaptureInfo, (*p).Data())
+	}
+}
+
 // PayloadParser parse payload
-func (h *Hamburg) PayloadParser(d *utils.PacketDetail) {
+func (h *Hamburg) PayloadParser(d *utils.Packet) {
 	if d.Payload != "" {
 		switch h.Conf.GetProtocol() {
 		case p.RAW:

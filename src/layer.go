@@ -10,12 +10,12 @@ import (
 )
 
 // LayersParser parse all layers
-func (h *Hamburg) LayersParser(packet *gopacket.Packet) *utils.PacketDetail {
+func (h *Hamburg) LayersParser(packet *gopacket.Packet) *utils.Packet {
 	s := h.Sniffer
 	c := h.Conf
 
 	s.CapturedCount++
-	d := &utils.PacketDetail{Type: h.GetLayers(*packet)}
+	d := &utils.Packet{Type: h.GetLayers(*packet)}
 	d.Timestap = (*packet).Metadata().CaptureInfo.Timestamp
 
 	// Ethernet layer
@@ -127,9 +127,9 @@ func (h *Hamburg) LayersParser(packet *gopacket.Packet) *utils.PacketDetail {
 
 	// Update stats
 	if d.Direction == "REQ" {
-		h.Stats.IncrRequestCount()
+		h.Stats.IncrRequest(1)
 	} else if d.Direction == "RSP" {
-		h.Stats.IncrResponseCount()
+		h.Stats.IncrResponse(1)
 	}
 
 	return d

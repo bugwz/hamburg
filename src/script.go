@@ -32,7 +32,7 @@ func NewScript(f string) *Script {
 }
 
 // Run try run lua script with packet detail
-func (s *Script) Run(d *utils.PacketDetail) error {
+func (s *Script) Run(d *utils.Packet) error {
 	if s == nil {
 		return fmt.Errorf("lua script is not available")
 	}

@@ -45,28 +45,28 @@ func NewStats() *Stats {
 	}
 }
 
-// IncrRequestCount incr request count
-func (s *Stats) IncrRequestCount() {
-	s.totalreq++
+// IncrRequest incr request count
+func (s *Stats) IncrRequest(n int64) {
+	s.totalreq += n
 }
 
-// IncrResponseCount incr response count
-func (s *Stats) IncrResponseCount() {
-	s.totalrsp++
+// IncrResponse incr response count
+func (s *Stats) IncrResponse(n int64) {
+	s.totalrsp += n
 }
 
-// IncrSlowlogCount incr slow count
-func (s *Stats) IncrSlowlogCount() {
-	s.slownum++
+// IncrSlowlog incr slow count
+func (s *Stats) IncrSlowlog(n int64) {
+	s.slownum += n
 }
 
-// IncrTimeIntervalCount incr time-consuming interval count
-func (s *Stats) IncrTimeIntervalCount(dura time.Duration) {
-	s.cost += dura
+// AddDuration incr time-consuming interval count
+func (s *Stats) AddDuration(t time.Duration) {
+	s.cost += t
 
 	buckets := s.bks
 	for i := len(buckets) - 1; i >= 0; i-- {
-		if dura >= buckets[i].Duration {
+		if t >= buckets[i].Duration {
 			buckets[i].Count++
 			return
 		}
@@ -75,27 +75,28 @@ func (s *Stats) IncrTimeIntervalCount(dura time.Duration) {
 
 // ShowStats show stats
 func (s *Stats) ShowStats() {
-	var sums, duras []*StatsTable
+	var m, d []*StatsTable
 
-	sums = append(sums, &StatsTable{Item: "RequestTotal", Value: fmt.Sprintf("%d", s.totalreq)})
-	sums = append(sums, &StatsTable{Item: "ResponseTotal", Value: fmt.Sprintf("%d", s.totalrsp)})
-	sums = append(sums, &StatsTable{Item: "CostTotal", Value: fmt.Sprintf("%v", s.cost)})
-	sums = append(sums, &StatsTable{Item: "SlowTotal", Value: fmt.Sprintf("%d", s.slownum)})
 	fmt.Println("\r\nSummary Statistics:")
-	table.Output(sums)
+	m = append(m, &StatsTable{Item: "RequestTotal", Value: fmt.Sprintf("%d", s.totalreq)})
+	m = append(m, &StatsTable{Item: "ResponseTotal", Value: fmt.Sprintf("%d", s.totalrsp)})
+	m = append(m, &StatsTable{Item: "CostTotal", Value: fmt.Sprintf("%v", s.cost)})
+	m = append(m, &StatsTable{Item: "SlowTotal", Value: fmt.Sprintf("%d", s.slownum)})
+	table.Output(m)
 
-	buckets := s.bks
-	for i := 0; i < len(buckets)-1; i++ {
-		duras = append(duras, &StatsTable{
-			Item:  fmt.Sprintf("%s ~ %s", buckets[i].Duration, buckets[i+1].Duration),
-			Value: fmt.Sprintf("%d", buckets[i].Count),
+	fmt.Println("Summary of time-consuming:")
+	bks := s.bks
+	for i := 0; i < len(bks)-1; i++ {
+		d = append(d, &StatsTable{
+			Item:  fmt.Sprintf("%s ~ %s", bks[i].Duration, bks[i+1].Duration),
+			Value: fmt.Sprintf("%d", bks[i].Count),
 		})
 	}
-	duras = append(duras, &StatsTable{
-		Item:  fmt.Sprintf("%s ~ ", buckets[len(buckets)-1].Duration),
-		Value: fmt.Sprintf("%d", buckets[len(buckets)-1].Count),
+	d = append(d, &StatsTable{
+		Item:  fmt.Sprintf("%s ~ ", bks[len(bks)-1].Duration),
+		Value: fmt.Sprintf("%d", bks[len(bks)-1].Count),
 	})
-	fmt.Println("Summary of time-consuming:")
-	table.Output(duras)
+	table.Output(d)
+
 	os.Exit(0)
 }

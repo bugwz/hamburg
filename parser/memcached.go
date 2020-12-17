@@ -7,6 +7,6 @@ import (
 )
 
 // MemcachedParser parse packets with memcached protocol rules
-func MemcachedParser(d *utils.PacketDetail) {
+func MemcachedParser(d *utils.Packet) {
 	d.Content = strings.ReplaceAll(d.Payload, "\r\n", " ")
 }

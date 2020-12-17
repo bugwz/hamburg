@@ -8,7 +8,7 @@ import (
 )
 
 // HTTPParser parse packets with http protocol rules
-func HTTPParser(d *utils.PacketDetail) {
+func HTTPParser(d *utils.Packet) {
 	var rtype, host, path string
 	p := d.Payload
 

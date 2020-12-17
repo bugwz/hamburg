@@ -17,7 +17,7 @@ const (
 )
 
 // RedisParser parse packets with redis protocol rules
-func RedisParser(d *utils.PacketDetail) {
+func RedisParser(d *utils.Packet) {
 	var cmds []string
 	p := d.Payload
 

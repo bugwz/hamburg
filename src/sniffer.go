@@ -42,8 +42,7 @@ type Sniffer struct {
 	PcapHandle     *pcap.Handle
 	LocalIPs       map[string]string // local ips
 	Promisc        bool              // nic promiscuous mode, default is false
-	StartTime      time.Time         // start sniffing time
-	EndTime        time.Time         // end sniffing time
+	StartAt        time.Time         // start sniffing time
 	RequestDict    *hashmap.Map      // record request data packets, used to calculate statistics time-consuming
 	CapturedCount  int64             // number of captured packets
 	OutFileHandle  *os.File          // file handle saved by the packet

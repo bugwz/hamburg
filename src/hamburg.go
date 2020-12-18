@@ -41,7 +41,7 @@ func NewHamburg() *Hamburg {
 // Run run
 func (h *Hamburg) Run() {
 	s := h.Sniffer
-	s.StartTime = time.Now()
+	s.StartAt = time.Now()
 
 	// 1) Check confs
 	if err := h.Conf.CheckConfs(); err != nil {
@@ -151,9 +151,12 @@ func (h *Hamburg) Scheduler() {
 			case <-c:
 				h.done <- SignalExit
 				return
-			case <-time.After(h.Conf.duration):
-				h.done <- TimeoutExit
-				return
+			case <-time.After(time.Duration(1) * time.Second):
+				limit := h.Conf.GetDuration()
+				if limit != 0 && time.Now().Sub(h.Sniffer.StartAt) >= limit {
+					h.done <- TimeoutExit
+					return
+				}
 			}
 		}
 	}()

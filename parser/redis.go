@@ -21,6 +21,13 @@ func (r *RedisParser) Run(v *Packet) {
 	var cmds []string
 	p := v.Payload
 
+	// 忽略部分指令
+	if len(p) > 12 && strings.LastIndex(p, "REPLCONF ACK") == 0 {
+		v.Ignore = true
+		return
+	}
+
+	// 开始解析指令
 	if len(p) > 0 {
 		switch p[0] {
 		case RedisError, RedisSimpleString, RedisInterger:

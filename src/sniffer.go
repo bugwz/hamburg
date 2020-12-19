@@ -2,13 +2,9 @@ package src
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"time"
 
-	"github.com/bugwz/hamburg/utils"
-	"github.com/emirpasic/gods/maps/hashmap"
-	"github.com/google/gopacket/layers"
+	u "github.com/bugwz/hamburg/utils"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
 )
@@ -39,126 +35,89 @@ var noReplyCommands = []string{
 
 // Sniffer sniffer
 type Sniffer struct {
-	PcapHandle     *pcap.Handle
-	LocalIPs       map[string]string // local ips
-	Promisc        bool              // nic promiscuous mode, default is false
-	StartAt        time.Time         // start sniffing time
-	RequestDict    *hashmap.Map      // record request data packets, used to calculate statistics time-consuming
-	CapturedCount  int64             // number of captured packets
-	OutFileHandle  *os.File          // file handle saved by the packet
-	OutFileHWriter *pcapgo.Writer    // write file
-	Quit           bool              // whether to stop sniffing packets
+	ips       []string          // Filtering IPs in packets
+	ports     []string          // Filtering Ports in packets
+	localip   map[string]string // IP list obtained from local NIC
+	pktreader *pcap.Handle      // Packet source
+	pktwriter *pcapgo.Writer    // Save packet
+	nic       *pcap.Interface   // Monitored NIC
+	duration  time.Duration     // Period of packet capture
+	promisc   bool              // NIC promiscuous mode
+	start     time.Time         // The moment the capture begins
 }
 
 // NewSniffer new sniffer
-func NewSniffer() *Sniffer {
+func NewSniffer(c *Conf) (*Sniffer, error) {
+	ips, e := u.GetIPs(c.FilterIPs)
+	if e != nil {
+		return nil, e
+	}
+
+	ports, e := u.GetPorts(c.FilterPorts)
+	if e != nil {
+		return nil, e
+	}
+
+	localips, e := u.GetLocalIPs(c.InterFile)
+	if e != nil {
+		return nil, e
+	}
+
+	pktreader, e := u.GetPacketReader(c.InterFile, c.SnapLen, c.ReadTimeout)
+	if e != nil {
+		return nil, e
+	}
+
+	pktwriter, e := u.GetPacketWriter(c.Outfile, c.SnapLen)
+	if e != nil {
+		return nil, e
+	}
+
+	filters, e := u.PacketFilter(c.FilterCustom, c.FilterPorts, c.FilterIPs)
+	if e != nil {
+		return nil, e
+	}
+	if e := pktreader.SetBPFFilter(filters); e != nil {
+		return nil, fmt.Errorf("Set bpf filter faile: %v", e)
+	}
+
 	return &Sniffer{
-		Promisc:     false,
-		RequestDict: hashmap.New(),
-	}
+		ips:       ips,
+		ports:     ports,
+		localip:   localips,
+		pktreader: pktreader,
+		pktwriter: pktwriter,
+		nic:       u.GetNIC(c.InterFile),
+		duration:  time.Duration(c.Duration) * time.Second,
+	}, nil
 }
 
-// CreatePcapHandle pcap handle with offline file or network interface
-func (h *Hamburg) CreatePcapHandle() error {
-	var err error
-	s := h.Sniffer
-	c := h.Conf
-	interfile := c.GetInterfile()
-	snapLen := c.GetSnapLen()
-	rtimeout := c.GetReadtimeout()
-
-	// Monitor offline pcap file
-	if utils.FileIsExist(interfile) {
-		if s.PcapHandle, err = pcap.OpenOffline(interfile); err != nil {
-			return fmt.Errorf("Monitor offline pcap file %s failed: %v", interfile, err)
-		}
-
-		return nil
-	}
-
-	// Monitor network interface
-	if s.PcapHandle, err = pcap.OpenLive(interfile, snapLen, s.Promisc, rtimeout); err != nil {
-		return fmt.Errorf("Monitor network interface %s failed: %v", interfile, err)
-	}
-	ips, err := utils.GetInterfaceIPs(interfile)
-	if err != nil {
-		return err
-	}
-	s.LocalIPs = ips
-
-	utils.PrintDeviceDetail(interfile)
-	return nil
+// SetStartTime set start time
+func (s *Sniffer) SetStartTime() {
+	s.start = time.Now()
 }
 
-// CreatePcapWriter save packets to local file
-func (h *Hamburg) CreatePcapWriter() error {
-	s := h.Sniffer
-	c := h.Conf
-	outfile := c.GetOutFile()
-	snapLen := c.GetSnapLen()
-
-	if outfile != "" {
-		handle, err := os.Create(outfile)
-		if err != nil {
-			return fmt.Errorf("Create out file %s failed: %v", outfile, err)
-		}
-		s.OutFileHandle = handle
-		s.OutFileHWriter = pcapgo.NewWriter(s.OutFileHandle)
-		s.OutFileHWriter.WriteFileHeader(uint32(snapLen), layers.LinkTypeEthernet)
-	}
-
-	return nil
+// GetStartTime set start time
+func (s *Sniffer) GetStartTime() time.Time {
+	return s.start
 }
 
-// CreateFilter packet filtering rules
-func (h *Hamburg) CreateFilter() error {
-	var fts []string
-	var pfts []string
-
-	// Ports filter
-	for _, port := range h.Conf.GetPorts() {
-		if len(port) != 0 {
-			pfts = append(pfts, fmt.Sprintf("(port %s)", port))
-		}
-	}
-	fts = h.AddFilters(fts, pfts)
-
-	// IPs filter
-	var serverf []string
-	for _, server := range h.Conf.GetIPs() {
-		if len(server) != 0 {
-			serverf = append(serverf, fmt.Sprintf("(host %s)", server))
-		}
-	}
-	fts = h.AddFilters(fts, serverf)
-
-	// Custom filter
-	ft := h.Conf.GetFilter()
-	if ft != "" {
-		fts = h.AddFilters(fts, []string{fmt.Sprintf("(%s)", ft)})
-	}
-
-	for i := range fts {
-		fts[i] = fmt.Sprintf("(%s)", fts[i])
-	}
-	if err := h.Sniffer.PcapHandle.SetBPFFilter(strings.Join(fts, " or ")); err != nil {
-		return fmt.Errorf("Set bpf filter faile: %v", err)
-	}
-
-	fmt.Printf("\r\nStart capturing packet with filter: %v\r\n", strings.Join(fts, " or "))
-	return nil
+// GetDuration get duration
+func (s *Sniffer) GetDuration() time.Duration {
+	return s.duration
 }
 
-// AddFilters add some filter rules
-func (h *Hamburg) AddFilters(fts []string, ret []string) []string {
-	if len(fts) != 0 {
-		if len(ret) != 0 {
-			for i := range fts {
-				fts[i] = fmt.Sprintf("%s and (%s)", fts[i], strings.Join(ret, " or "))
-			}
-		}
-		return fts
+// NICDetail nic detail
+func (s *Sniffer) NICDetail() {
+	if s.nic == nil {
+		return
 	}
 
-	return ret
+	fmt.Println("\nName: ", s.nic.Name)
+	fmt.Println("Description: ", s.nic.Description)
+	fmt.Println("Devices addresses: ", s.nic.Description)
+	for _, ads := range s.nic.Addresses {
+		fmt.Println("- IP address: ", ads.IP)
+		fmt.Println("- Subnet mask: ", ads.Netmask)
+	}
 }

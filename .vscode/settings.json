@@ -1,0 +1,25 @@
+{
+    "editor.wordWrap": "on",
+    // 如果useLanguageServer设为true，那么在编写代码时引入本地没有的package时，会自动下载安装
+    // 就是有时候会非常卡，保存go的编码文件时偶尔会卡死。这点你们自己取舍吧
+    "go.useLanguageServer": false,
+    "editor.minimap.renderCharacters": false,
+    "editor.minimap.enabled": false,
+    "terminal.external.osxExec": "iTerm.app",
+    "go.docsTool": "gogetdoc",
+    "go.testFlags": ["-v","-count=1"],
+    "go.buildTags": "",
+    "go.buildFlags": [],
+    "go.lintFlags": [],
+    "go.vetFlags": [],
+    "go.coverOnSave": false,
+    "go.useCodeSnippetsOnFunctionSuggest": false,
+    "go.formatTool": "goreturns",
+    "go.gocodeAutoBuild": false,
+    "go.gopath": "/Users/guwenzhuang/Go",
+    "go.autocompleteUnimportedPackages": true,
+    "go.formatOnSave": true,
+    "window.zoomLevel": 0,
+    "debug.console.fontSize": 16,
+    "debug.console.lineHeight": 30,
+}

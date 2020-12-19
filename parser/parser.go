@@ -20,9 +20,11 @@ type Packet struct {
 	Type       string
 	Request    bool
 	Direction  string
+	SrcID      string
 	SrcMAC     string
 	SrcIP      string
 	SrcPort    string
+	DstID      string
 	DstMAC     string
 	DstIP      string
 	DstPort    string
@@ -35,6 +37,7 @@ type Packet struct {
 	PayloadLen int
 	Content    string
 	Timestap   time.Time
+	Ignore     bool
 }
 
 // Parser interface
@@ -43,8 +46,8 @@ type Parser interface {
 }
 
 // NewParser new parser
-func NewParser(k string) Parser {
-	switch k {
+func NewParser(v string) Parser {
+	switch v {
 	case RAW:
 		return &RAWParser{}
 	case DNS:

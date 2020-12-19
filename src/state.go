@@ -91,15 +91,7 @@ func (s *State) FitSlow(v time.Duration) bool {
 
 // ShowStats show stats
 func (s *State) ShowStats() {
-
-	fmt.Println(s)
 	var m, d []*StatPair
-
-	fmt.Println(s.request)
-	fmt.Println(s.response)
-	fmt.Println(s.cost)
-	fmt.Println(s.slow)
-	// fmt.Println(s.request)
 
 	fmt.Println("\r\nSummary Statistics:")
 	m = append(m, &StatPair{Item: "Request", Value: fmt.Sprintf("%d", s.request)})

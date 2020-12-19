@@ -16,12 +16,6 @@ var (
 	showreply, help                                             bool
 )
 
-// var help bool
-// var c *s.Conf
-
-// c := s.Conf{}
-// c := s.NewConf()
-
 func usage() {
 	fmt.Fprintf(os.Stderr, `
      _                     _                     
